@@ -1,0 +1,94 @@
+# ------------------------------------------------------
+# THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+# ------------------------------------------------------
+
+type Query {
+  me: UserModel!
+  readUsers(where: ReadUserInput, pagination: PaginationData = {}, sortBy: SortByData): ReadUserOutput!
+}
+
+type UserModel {
+  id: ID!
+  name: String!
+  username: String!
+  active: Boolean!
+  role: Role!
+  createdDate: DateTime!
+  updatedDate: DateTime!
+}
+
+enum Role {
+  Admin
+  Member
+}
+
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
+
+type ReadUserOutput {
+  count: Int!
+  data: [UserModel!]!
+}
+
+input ReadUserInput {
+  id: ID
+  username: String
+  name: String
+  role: Role
+  active: Boolean
+}
+
+input PaginationData {
+  take: Float! = 50
+  skip: Float! = 0
+}
+
+input SortByData {
+  field: String
+  descending: Boolean
+}
+
+type Mutation {
+  logIn(data: LoginInput!): LoginOutput!
+  createUser(data: CreateUserInput!): UserModel!
+  updateUser(data: UpdateUserInput!, where: IdInput!): UserModel!
+  deleteUser(where: IdInput!): SuccessOtput!
+  changePassword(data: ChangePasswordInput!, where: IdInput!): SuccessOtput!
+}
+
+type LoginOutput {
+  jwt: String!
+}
+
+input LoginInput {
+  username: String!
+  password: String!
+}
+
+input CreateUserInput {
+  name: String!
+  username: String!
+  password: String!
+  role: Role!
+}
+
+input UpdateUserInput {
+  username: String!
+  active: Boolean!
+  role: Role
+  name: String!
+}
+
+input IdInput {
+  id: ID!
+}
+
+type SuccessOtput {
+  success: Boolean!
+}
+
+input ChangePasswordInput {
+  newPassword: String!
+}

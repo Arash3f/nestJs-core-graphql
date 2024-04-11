@@ -1,0 +1,6 @@
+/dist
+/node_modules
+/documentation
+.eslintrc.js
+jest.config.js
+webpack-hmr.config.js
