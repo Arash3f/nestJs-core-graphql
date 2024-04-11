@@ -10,6 +10,16 @@ module.exports = {
     sourceType: "module", // Allows for the use of imports
   },
 
+  ignorePatterns: [
+    "/dist",
+    "/node_modules",
+    "/documentation",
+    ".eslintrc.js",
+    "jest.config.js",
+    "webpack-hmr.config.js",
+    "/src/utils/graphql"
+  ],
+
   env: {
     browser: true,
   },
