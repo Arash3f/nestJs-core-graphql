@@ -3,7 +3,7 @@ version: '3'
 services:
   postgres:
     image: postgres:latest
-    container_name: nest-rest-core-dev-postgres
+    container_name: nest-graph-core-dev-postgres
     ports:
       - 5435:5432
     env_file:
@@ -11,13 +11,13 @@ services:
     volumes:
       - /data/postgres:/data/postgres
     networks:
-      - nest-rest-core-dev
+      - nest-graph-core-dev
 
   app:
     build:
       context: ../../
       dockerfile: docker/develop/Dockerfile.dev
-    container_name: nest-rest-core-dev-app
+    container_name: nest-graph-core-dev-app
     command: bash -c "pnpm run start:dev:docker"
     ports:
       - '3005:3000'
@@ -27,31 +27,31 @@ services:
     env_file:
       - '.env.docker.dev'
     networks:
-      - nest-rest-core-dev
+      - nest-graph-core-dev
 
   prometheus:
     image: prom/prometheus
-    container_name: nest-rest-core-dev-prometheus
+    container_name: nest-graph-core-dev-prometheus
     ports:
       - "9095:9090"
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
     networks:
-      - nest-rest-core-dev
+      - nest-graph-core-dev
 
   grafana:
     image: grafana/grafana
-    container_name: nest-rest-core-dev-grafana
+    container_name: nest-graph-core-dev-grafana
     ports:
       - "3001:3000"
     volumes:
       - grafana-data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning
     networks:
-      - nest-rest-core-dev
+      - nest-graph-core-dev
 
   loki:
-    container_name: nest-rest-core-dev-loki
+    container_name: nest-graph-core-dev-loki
     image: grafana/loki
     ports:
     - 3100:3100
@@ -60,10 +60,10 @@ services:
       - ./loki-config.yaml:/mnt/config/loki-config.yaml:ro
     restart: always
     networks:
-      - nest-rest-core-dev
+      - nest-graph-core-dev
 
 networks:
-  nest-rest-core-dev: 
+  nest-graph-core-dev: 
     driver: bridge
 
 volumes:

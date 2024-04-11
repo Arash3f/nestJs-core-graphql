@@ -2,7 +2,7 @@ version: '3'
 
 services:
   nginx:
-    container_name: nest-rest-core-prod-nginx
+    container_name: nest-graph-core-prod-nginx
     build: nginx
     volumes:
       - .:/app
@@ -13,23 +13,23 @@ services:
     depends_on:
       - app
     networks:
-      - nest-rest-core-prod
+      - nest-graph-core-prod
 
   postgres:
     image: postgres:latest
-    container_name: nest-rest-core-prod-postgres
+    container_name: nest-graph-core-prod-postgres
     env_file:
     - docker.env.prod
     volumes:
       - /data/postgres:/data/postgres
     networks:
-      - nest-rest-core-prod
+      - nest-graph-core-prod
 
   app:
     build:
       context: ../../
       dockerfile: docker/production/Dockerfile.prod
-    container_name: nest-rest-core-prod-app
+    container_name: nest-graph-core-prod-app
     command: bash -c "pnpm run start:prod:docker"
     depends_on:
       - postgres
@@ -37,37 +37,37 @@ services:
     env_file:
       - '.env.docker.prod'
     networks:
-      - nest-rest-core-prod
+      - nest-graph-core-prod
 
   prometheus:
     image: prom/prometheus
-    container_name: nest-rest-core-prod-prometheus
+    container_name: nest-graph-core-prod-prometheus
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
     networks:
-      - nest-rest-core-prod
+      - nest-graph-core-prod
 
   grafana:
     image: grafana/grafana
-    container_name: nest-rest-core-prod-grafana
+    container_name: nest-graph-core-prod-grafana
     volumes:
       - grafana-data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning
     networks:
-      - nest-rest-core-prod
+      - nest-graph-core-prod
 
   loki:
-    container_name: nest-rest-core-prod-loki
+    container_name: nest-graph-core-prod-loki
     image: grafana/loki
     command: -config.file=/etc/loki/local-config.yaml
     volumes:
       - ./loki-config.yaml:/mnt/config/loki-config.yaml:ro
     restart: always
     networks:
-      - nest-rest-core-prod
+      - nest-graph-core-prod
 
 networks:
-  nest-rest-core-prod: 
+  nest-graph-core-prod: 
     driver: bridge
      
 volumes:

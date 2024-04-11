@@ -45,19 +45,19 @@ import { LokiLoggerModule } from "nestjs-loki-logger"
         ErrorModule,
         EnvConfigModule,
         InitModule,
-        GraphQLModule.forRoot<ApolloDriverConfig>({
+        GraphQLModule.forRoot({
             driver: ApolloDriver,
             formatError: ErrorService.errorFilter,
             autoSchemaFile: "schema.gql",
-            // debug: true,
-            // cors: {
-            //     origin: "*",
-            //     methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
-            //     allowedHeaders:
-            //         "Content-Type, Accept, multipart-form, Origin,X-Requested-With,Authorization,authorization,X-Forwarded-for",
-            //     preflightContinue: false,
-            //     optionsSuccessStatus: 200,
-            // },
+            playground: true,
+            cors: {
+                origin: "*",
+                methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
+                allowedHeaders:
+                    "Content-Type, Accept, multipart-form, Origin,X-Requested-With,Authorization,authorization,X-Forwarded-for",
+                preflightContinue: false,
+                optionsSuccessStatus: 200,
+            },
         }),
     ],
 })

@@ -5,4 +5,4 @@ import { execSync } from "child_process"
  * ? whats zeus file and why we need it see https://graphqleditor.com/docs/tools/zeus/index/
  * ! after running project, schema.gql updated automatically
  */
-execSync("npx zeus schema.gql ./src/utils/graphql", { stdio: "inherit" })
+execSync("zeus schema.gql ./src/utils/graphql --node", { stdio: "inherit" })

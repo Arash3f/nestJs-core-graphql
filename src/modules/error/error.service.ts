@@ -1,5 +1,6 @@
 import { HttpStatus, Injectable, Logger } from "@nestjs/common"
 import { AuthErrors } from "@src/modules/auth/constants/errors"
+import { EnvConfigService } from "@src/modules/config/env-config.service"
 import { NodeEnvType } from "@src/modules/config/types/config.type"
 import {
     CreateErrorInput,
@@ -89,11 +90,11 @@ export class ErrorService {
      * @param gqlError Graphql Formatted Error
      * @returns new error
      */
-    static errorFilter(gqlError: GraphQLFormattedError): ErrorType {
+    static errorFilter(gqlError: GraphQLFormattedError, config: EnvConfigService): ErrorType {
         const logger = new Logger(ErrorService.name)
-        const exception = gqlError.extensions?.response
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
-        const productMode = process.env.NODE_ENV == NodeEnvType.Production
+        const originalError = gqlError.extensions?.originalError
+        const appError = gqlError.message
+        const productMode = config.nodeEnv == NodeEnvType.Production
         const erroObject: ErrorType = {
             message: undefined,
         }
@@ -101,20 +102,26 @@ export class ErrorService {
         /**
          * * Parsing error
          */
-        if (exception) {
-            const res: ErrorType = gqlError.extensions.response as ErrorInfo
+        if (originalError) {
+            const res: ErrorType = gqlError.extensions
+                .originalError as ErrorInfo
             erroObject.message = res.message || gqlError.message
-            erroObject.translation = res.translation
+            erroObject.persianTranslation = res.persianTranslation
             erroObject.code = res.code
             erroObject.module = res.module
             erroObject.statusCode = res.statusCode
+        } else if (appError) {
+            erroObject.message = appError
         }
 
         const obj = {
             module: productMode ? undefined : erroObject.module,
             code: productMode ? undefined : erroObject.code,
             message: productMode ? undefined : erroObject.message,
-            translation: productMode ? undefined : erroObject.translation,
+            developerMessage: productMode ? undefined : erroObject.developerMessage,
+            persianTranslation: productMode
+                ? undefined
+                : erroObject.persianTranslation,
             statusCode: productMode ? undefined : erroObject.statusCode,
             timestamp: new Date().toISOString(),
         }
@@ -124,7 +131,11 @@ export class ErrorService {
          */
         const error: ErrorType = JSON.parse(JSON.stringify(obj)) as ErrorType
 
-        logger.error(error)
+        if (config.nodeEnv == NodeEnvType.Production) {
+            delete error.developerMessage
+        } else if (config.nodeEnv == NodeEnvType.Development) {
+            logger.error(error)
+        }
         return error
     }
 }

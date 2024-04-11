@@ -7,9 +7,10 @@ import { ModuleNames } from "@src/constants"
 export type ErrorInfo = {
     code: number
     module: ModuleNames
-    translation: string
+    persianTranslation: string
     message: string
     statusCode?: HttpStatus
+    developerMessage?: string
 }
 
 /**
@@ -36,7 +37,8 @@ export type CreateErrorInput = {
 export type GenerateErrorType = Record<string, ErrorType>
 export type ErrorType = {
     message: string
-    translation?: string
+    persianTranslation?: string
+    developerMessage?: string
     code?: number
     module?: ModuleNames
     statusCode?: number
