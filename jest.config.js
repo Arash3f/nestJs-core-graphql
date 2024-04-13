@@ -7,9 +7,6 @@ module.exports = {
   coverageDirectory: "./coverage",
   coverageReporters: ["html"],
   testEnvironment: "node",
-  coveragePathIgnorePatterns: [
-      "<rootDir>/src/utils",
-  ],
   transform: {
     "^.+\\.(t|j)s$": ["ts-jest"],
   },

@@ -17,7 +17,6 @@ module.exports = {
     ".eslintrc.js",
     "jest.config.js",
     "webpack-hmr.config.js",
-    "/src/utils/graphql"
   ],
 
   env: {

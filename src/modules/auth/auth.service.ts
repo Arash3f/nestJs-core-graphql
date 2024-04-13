@@ -38,7 +38,7 @@ export class AuthService {
      * @param input Necessary data for login user
      * @returns User's jwt Token
      * @throws
-     * {@link "modules/auth/constants/errors".AuthErrors | IncorrectUsernameOrPassword},
+     * {@link IncorrectUsernameOrPassword},
      */
     async logIn(input: ApiCreateType<LoginInput>): Promise<LoginOutput> {
         const { password, username } = input.data
@@ -70,7 +70,7 @@ export class AuthService {
      * @param input Necessary data for create user
      * @returns New User informations or throw error
      * @throws
-     * {@link "modules/auth/constants/errors".AuthErrors | UsernameIsDuplicated},
+     * {@link UsernameIsDuplicated},
      */
     async createUser(
         input: ApiCreateType<CreateUserInput>,
@@ -129,8 +129,8 @@ export class AuthService {
      * @param input Necessary data for update user
      * @returns Updated user Information or throw error
      * @throws
-     * {@link "modules/auth/constants/errors".AuthErrors | UserNotFound},
-     * {@link "modules/auth/constants/errors".AuthErrors | UsernameIsDuplicated},
+     * {@link UserNotFound},
+     * {@link UsernameIsDuplicated},
      */
     async updateUser(
         input: ApiUpdateType<UpdateUserInput, IdInput>,
@@ -168,7 +168,7 @@ export class AuthService {
      * @param where Information for find the user
      * @returns True value or throw Error
      * @throws
-     * {@link "modules/auth/constants/errors".AuthErrors | UserNotFound},
+     * {@link UserNotFound},
      */
     async deleteUser(where: IdInput): Promise<SuccessOtput> {
         const { id } = where
@@ -187,7 +187,7 @@ export class AuthService {
      * @param input Necessary data for update user's password
      * @returns True value or throw Error
      * @throws
-     * {@link "modules/auth/constants/errors".AuthErrors | UserNotFound},
+     * {@link UserNotFound},
      */
     async changePassword(
         input: ApiUpdateType<ChangePasswordInput, IdInput>,
@@ -223,7 +223,7 @@ export class AuthService {
      * @param password Target password
      * @returns User Object or throw Error
      * @throws
-     * {@link "modules/auth/constants/errors".AuthErrors | IncorrectUsernameOrPassword},
+     * {@link IncorrectUsernameOrPassword},
      */
     private async verifyUserPassword(
         userId: string,
@@ -252,7 +252,7 @@ export class AuthService {
      * @param exceptionName The username that should not be considered in the verification operation (Optional)
      * @returns result of operation
      * @throws
-     * {@link "modules/auth/constants/errors".AuthErrors | UsernameIsDuplicated},
+     * {@link UsernameIsDuplicated},
      */
     private async verifyDuplicateUsernameWithException(
         username: string,
@@ -280,7 +280,7 @@ export class AuthService {
      * @param userId Target User Id for Verify Existance
      * @returns User Object or throw Error
      * @throws
-     * {@link "modules/auth/constants/errors".AuthErrors | UserNotFound},
+     * {@link UserNotFound},
      */
     private async verifyUserExistanceByUserId(userId: string): Promise<Users> {
         const user = await this.prisma.users.findUnique({
@@ -302,7 +302,7 @@ export class AuthService {
      * @param username Target username for Verify
      * @returns User Object or throw Error
      * @throws
-     * {@link "modules/auth/constants/errors".AuthErrors | IncorrectUsernameOrPassword},
+     * {@link IncorrectUsernameOrPassword},
      */
     private async verifyUserExistanceByUsername(
         username: string,

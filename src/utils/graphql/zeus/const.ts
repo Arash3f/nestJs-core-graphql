@@ -1,5 +1,3 @@
-/* eslint-disable */
-
 export const AllTypesProps: Record<string,any> = {
 	Query:{
 		readUsers:{

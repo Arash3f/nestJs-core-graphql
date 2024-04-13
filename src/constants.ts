@@ -12,7 +12,7 @@ export enum ModuleNames {
 /**
  * This address is used for testing
  */
-export const serverAddress = `${process.env.serverAddress}:${process.env.serverPort}`
+export const serverAddress = `${process.env.serverAddress}:${process.env.serverPort}/graphql`
 
 /**
  * This address is used for creating api swagger

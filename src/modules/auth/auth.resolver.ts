@@ -33,7 +33,7 @@ export class AuthResolver {
      * @param data Necessary data for login user
      * @returns User's jwt Token or throw Error
      * @throws
-     * {@link "modules/auth/constants/errors".AuthErrors | IncorrectUsernameOrPassword},
+     * {@link IncorrectUsernameOrPassword},
      */
     @Mutation(() => LoginOutput)
     async logIn(@DataArg(LoginInput) data: LoginInput): Promise<LoginOutput> {
@@ -44,7 +44,7 @@ export class AuthResolver {
      * * The me operation return the requester informations by requester Token
      * @returns User informations or throw Error
      * @guard
-     * {@link "common/guard/is-logged-in.guard".IsLoggedIn}
+     * {@link IsLoggedIn}
      */
     @Query(() => UserModel)
     @UseGuards(IsLoggedIn)
@@ -57,9 +57,9 @@ export class AuthResolver {
      * @param data Necessary data for create user
      * @returns New User informations or throw Error
      * @guard
-     * {@link "common/guard/is-admin.guard".IsAdmin}
+     * {@link IsAdmin}
      * @throws
-     * {@link "modules/auth/constants/errors".AuthErrors | UsernameIsDuplicated},
+     * {@link UsernameIsDuplicated},
      */
     @Mutation(() => UserModel)
     @UseGuards(IsAdmin)
@@ -76,7 +76,7 @@ export class AuthResolver {
      * @param sortBy Information for sort output
      * @returns Users found
      * @guard
-     * {@link "common/guard/is-logged-in.guard".IsLoggedIn}
+     * {@link IsLoggedIn}
      */
     @Query(() => ReadUserOutput)
     @UseGuards(IsLoggedIn)
@@ -95,10 +95,10 @@ export class AuthResolver {
      * @param where Information for find the user
      * @returns Updated user or throw Error
      * @guard
-     * {@link "common/guard/is-admin.guard".IsAdmin}
+     * {@link IsAdmin}
      * @throws
-     * {@link "modules/auth/constants/errors".AuthErrors | UserNotFound},
-     * {@link "modules/auth/constants/errors".AuthErrors | UsernameIsDuplicated},
+     * {@link UserNotFound},
+     * {@link UsernameIsDuplicated},
      */
     @Mutation(() => UserModel)
     @UseGuards(IsAdmin)
@@ -114,9 +114,9 @@ export class AuthResolver {
      * @param where Information for find the user
      * @returns True value or throw Error
      * @guard
-     * {@link "common/guard/is-admin.guard".IsAdmin}
+     * {@link IsAdmin}
      * @throws
-     * {@link "modules/auth/constants/errors".AuthErrors | UserNotFound},
+     * {@link UserNotFound},
      */
     @Mutation(() => SuccessOtput)
     @UseGuards(IsAdmin)
@@ -132,9 +132,9 @@ export class AuthResolver {
      * @param where Information for find the user
      * @returns True value or throw Error
      * @guard
-     * {@link "common/guard/is-admin.guard".IsAdmin}
+     * {@link IsAdmin}
      * @throws
-     * {@link "modules/auth/constants/errors".AuthErrors | UserNotFound},
+     * {@link UserNotFound},
      */
     @Mutation(() => SuccessOtput)
     @UseGuards(IsAdmin)

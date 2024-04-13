@@ -1,6 +1,4 @@
-/* eslint-disable */
-
-import { AllTypesProps, ReturnTypes, Ops } from './const.js';
+import { AllTypesProps, ReturnTypes, Ops } from '@src/utils/graphql/zeus/const';
 import fetch, { Response } from 'node-fetch';
 import WebSocket from 'ws';
 
