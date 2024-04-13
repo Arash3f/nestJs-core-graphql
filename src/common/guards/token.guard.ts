@@ -31,6 +31,11 @@ export class TokenGuard implements CanActivate {
     ) {}
 
     async canActivate(context: ExecutionContext) {
+        const requestCheck = context.switchToHttp().getRequest();
+
+        if (requestCheck) {
+            return true
+        }
         const ctx = GqlExecutionContext.create(context)
         const request: Request = ctx.getContext().req
         const authorization = request.headers["authorization"] || ""
