@@ -1,5 +1,0 @@
-{
-  "*.ts": [
-    "eslint --fix -c .eslintrc.js"
-  ]
-}

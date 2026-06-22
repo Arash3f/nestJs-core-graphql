@@ -1,70 +1,78 @@
-import { NodeEnvType } from "@src/modules/config/types/config.type"
-import { IsEnum, IsNumber, IsOptional, IsString } from "class-validator"
+import { ToBoolean, ToNumber } from "@src/modules/config/transforms"
+import { EnvType } from "@src/modules/config/types/config.type"
+import { IsBoolean, IsEnum, IsNumber, IsString } from "class-validator"
 
-/**
- * * Environment Class Model
- */
 export class EnvConfigModel {
-    @IsString()
-    swaggerDocsPath: string
+  @IsNumber()
+  @ToNumber()
+  SERVER_PORT: number
 
-    @IsString()
-    swaggerPath: string
+  @IsString()
+  JWT_SECRET: string
 
-    @IsNumber()
-    serverPort: number
+  @IsNumber()
+  @ToNumber()
+  JWT_ACCESS_EXPIRE: number
 
-    @IsString()
-    jwtSecret: string
+  @IsNumber()
+  @ToNumber()
+  JWT_REFRESH_EXPIRE: number
 
-    @IsNumber()
-    jwtExpire: number
+  @IsString()
+  DATABASE_CONNECTION_URL: string
 
-    @IsString()
-    DATABASE_CONNECTION_URL: string
+  @IsString()
+  SERVER_ADDRESS: string
 
-    @IsString()
-    serverAddress: string
+  @IsString()
+  DATABASE_NAME: string
 
-    @IsString()
-    lokiServerAddress: string
+  @IsString()
+  DATABASE_USERNAME: string
 
-    @IsString()
-    databaseName: string
+  @IsString()
+  DATABASE_PASSWORD: string
 
-    @IsString()
-    databaseUsername: string
+  @IsString()
+  DATABASE_PORT: string
 
-    @IsString()
-    databasePassword: string
+  @IsString()
+  DATABASE_HOST: string
 
-    @IsString()
-    databasePort: string
+  @IsEnum(EnvType)
+  NODE_ENV: EnvType
 
-    @IsString()
-    databaseHost: string
+  @IsBoolean()
+  @ToBoolean()
+  SEED_ON_BOOT: boolean
 
-    @IsEnum(NodeEnvType)
-    NODE_ENV: NodeEnvType
+  @IsString()
+  SUPER_USER_USERNAME: string
 
-    @IsString()
-    SUPER_USER_USERNAME: string
+  @IsString()
+  SUPER_USER_NAME: string
 
-    @IsString()
-    SUPER_USER_NAME: string
+  @IsString()
+  SUPER_USER_PASSWORD: string
 
-    @IsString()
-    SUPER_USER_PASSWORD: string
+  @IsString()
+  MEMBER_USER_USERNAME: string
 
-    @IsOptional()
-    @IsString()
-    MEMBER_USER_USERNAME?: string
+  @IsString()
+  MEMBER_USER_NAME: string
 
-    @IsOptional()
-    @IsString()
-    MEMBER_USER_NAME?: string
+  @IsString()
+  MEMBER_USER_PASSWORD: string
 
-    @IsOptional()
-    @IsString()
-    MEMBER_USER_PASSWORD?: string
+  @IsNumber()
+  @ToNumber()
+  PASSWORD_HASH_MEMORY_COST: number
+
+  @IsNumber()
+  @ToNumber()
+  PASSWORD_HASH_TIME_COST: number
+
+  @IsNumber()
+  @ToNumber()
+  PASSWORD_HASH_PARALLELISM: number
 }

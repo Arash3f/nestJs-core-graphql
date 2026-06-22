@@ -1,338 +1,289 @@
 import { Injectable } from "@nestjs/common"
 import { JwtService } from "@nestjs/jwt"
-import { Prisma, Users } from "@prisma/client"
-import { IdInput } from "@src/common/input/id.input"
-import { SuccessOtput } from "@src/common/output/success.output"
-import {
-    ApiCreateType,
-    ApiReadType,
-    ApiUpdateType,
-} from "@src/common/types/common.type"
-import { JwtPayloadType } from "@src/common/types/token.type"
+import { Prisma, Role, Users } from "@prisma/client"
+import { AppException } from "@src/app.exception"
+import type { SuccessOutput } from "@src/common/dto/success.output"
+import { JwtPayload, Tokens } from "@src/common/types/request.type"
 import { AuthErrors } from "@src/modules/auth/constants/errors"
-import { ChangePasswordInput } from "@src/modules/auth/dto/change-password.input"
-import { CreateUserInput } from "@src/modules/auth/dto/create-user.input"
-import { LoginInput } from "@src/modules/auth/dto/login.input"
-import { LoginOutput } from "@src/modules/auth/dto/login.output"
-import { ReadUserInput } from "@src/modules/auth/dto/read-user.input"
-import { ReadUserOutput } from "@src/modules/auth/dto/read-user.output"
-import { UpdateUserInput } from "@src/modules/auth/dto/update-user.input"
-import { UserModel } from "@src/modules/auth/model/user.model"
+import type { ChangePasswordInput } from "@src/modules/auth/dto/change-password.input"
+import type { LoginInput } from "@src/modules/auth/dto/login.input"
+import type { LoginOutput } from "@src/modules/auth/dto/login.output"
+import { RefreshTokenInput } from "@src/modules/auth/dto/refresh-token.input"
+import type { RegisterInput } from "@src/modules/auth/dto/register.input"
 import { EnvConfigService } from "@src/modules/config/env-config.service"
-import { ErrorService } from "@src/modules/error/error.service"
 import { PrismaService } from "@src/modules/prisma/prisma.service"
-import { hashPassword, verifyPassword } from "@src/utils/password"
-import cleanDeep from "clean-deep"
+import { UserErrors } from "@src/modules/user/constants/errors"
+import * as argon2 from "argon2"
 
+/**
+ * Auth service
+ */
 @Injectable()
 export class AuthService {
-    constructor(
-        private prisma: PrismaService,
-        private jwt: JwtService,
-        private error: ErrorService,
-        private apiConfig: EnvConfigService,
-    ) {}
+  /**
+   * import services
+   * @param prisma prisma service for call database
+   * @param jwt jwt service for generate toekn
+   */
+  constructor(
+    private prisma: PrismaService,
+    private envConfig: EnvConfigService,
+    private jwt: JwtService,
+  ) {}
 
-    /**
-     * * The logIn operation takes the user's information and validate it
-     * @param input Necessary data for login user
-     * @returns User's jwt Token
-     * @throws
-     * {@link IncorrectUsernameOrPassword},
-     */
-    async logIn(input: ApiCreateType<LoginInput>): Promise<LoginOutput> {
-        const { password, username } = input.data
+  /**
+   * Takes the user's information and after validate the information returns the user's jwt Token
+   *
+   * @param data - Necessary data for login user
+   * @param deviceId - Fingerprint of the calling device; the issued tokens are bound to it.
+   *
+   * @returns User's jwt Token
+   *
+   * @throws {AppException} AuthErrors.IncorrectUsernameOrPassword
+   */
+  async logIn(data: LoginInput, deviceId: string): Promise<LoginOutput> {
+    const { password, username } = data
 
-        const user = await this.verifyUserExistanceByUsername(username)
-        await this.verifyUserPassword(user.id, password)
-        const token = await this.generateToken(user.username, user.id)
+    const user = await this.verifyUserExistanceByUsername(username)
+    await this.verifyUserPassword(user.passwordHash, password)
+    const tokens = await this.generateToken(user.username, user.id, deviceId)
+    await this.storeRefreshToken(user.id, tokens.refreshToken)
 
-        return { jwt: token }
+    return tokens
+  }
+
+  async logout(userId: string): Promise<SuccessOutput> {
+    await this.removeRefreshToken(userId)
+    return { success: true }
+  }
+
+  /**
+   * Public self-registration: create a new account and immediately log it in.
+   *
+   * The role is forced to `Member` here — it is never taken from the request —
+   * so a visitor can't sign themselves up as an Admin. Implemented directly
+   * against Prisma (rather than delegating to `UserService.createUser`) to keep
+   * `AuthService` free of a circular dependency on `UserService`.
+   *
+   * @param data - Name, username and password for the new account.
+   * @param deviceId - Fingerprint of the calling device; the issued tokens are bound to it.
+   *
+   * @returns The new user's jwt tokens (already logged in).
+   *
+   * @throws {AppException} UserErrors.UsernameIsDuplicated
+   */
+  async register(data: RegisterInput, deviceId: string): Promise<LoginOutput> {
+    const { name, username, password } = data
+    const hashedPassword = await this.generatedHashedPassword(password)
+
+    try {
+      await this.prisma.users.create({
+        data: {
+          name,
+          username: username.toLowerCase(),
+          passwordHash: hashedPassword,
+          role: Role.Member,
+        },
+      })
+    } catch (error: unknown) {
+      this.prisma.handlePrismaErrors({
+        error: error,
+        duplicatedErrors: [
+          {
+            error: UserErrors.UsernameIsDuplicated,
+            field: Prisma.UsersScalarFieldEnum.username,
+          },
+        ],
+      })
     }
 
-    /**
-     * * Return the requester informations by requester Token
-     * @param requesterId Get the userId from the Token
-     * @returns User informations or throw error
-     */
-    async me(requesterId: string): Promise<UserModel> {
-        const user: Users = await this.prisma.users.findUnique({
-            where: {
-                id: requesterId,
-            },
-        })
+    return await this.logIn({ username, password }, deviceId)
+  }
 
-        return user
+  /**
+   * Take the target user's id and update their password
+   *
+   * @param userId - Target user's id
+   * @param data - Necessary data for update user's password
+   *
+   * @returns True value or throw Error
+   *
+   * @throws {AppException} UserErrors.UserNotFound
+   */
+  async changePassword(userId: string, data: ChangePasswordInput): Promise<SuccessOutput> {
+    const hashedPassword = await this.generatedHashedPassword(data.newPassword)
+
+    try {
+      await this.prisma.users.update({
+        where: { id: userId },
+        data: { passwordHash: hashedPassword },
+      })
+
+      return { success: true }
+    } catch (error: unknown) {
+      this.prisma.handlePrismaErrors({
+        error: error,
+        notFoundError: UserErrors.UserNotFound,
+      })
+    }
+  }
+
+  /**
+   * refresh user token with refreshToken and get new tokens
+   *
+   * @param userId - requested user
+   * @param input - Necessary data for update user's token
+   * @param deviceId - Fingerprint of the calling device; must match the device the session was bound to.
+   *
+   * @returns New user tokens
+   *
+   * @throws {AppException} AuthErrors.UserIsNotAuthorized
+   * @throws {AppException} AuthErrors.DeviceMismatch - When the request comes from a different device than the one the session was issued to.
+   * @throws {AppException} AuthErrors.InValidRefreshToken
+   */
+  async refreshToken(input: RefreshTokenInput, deviceId: string): Promise<LoginOutput> {
+    const decodeToken = this.jwt.decode<JwtPayload>(input.refreshToken)
+    if (decodeToken.deviceId !== deviceId) {
+      throw new AppException(AuthErrors.DeviceMismatch)
     }
 
-    /**
-     * * Takes the user's information and after validate the information create new User
-     * @param input Necessary data for create user
-     * @returns New User informations or throw error
-     * @throws
-     * {@link UsernameIsDuplicated},
-     */
-    async createUser(
-        input: ApiCreateType<CreateUserInput>,
-    ): Promise<UserModel> {
-        const { password, username, name, role } = input.data
-        await this.verifyDuplicateUsernameWithException(username)
-        const hashedPassword = await this.generatedHashedPassword(password)
+    const user = await this.prisma.users.findUnique({ where: { id: decodeToken.id } })
+    if (!user || !user?.reFreshTokenHash) throw new AppException(AuthErrors.UserIsNotAuthorized)
 
-        const createUserInput: Prisma.UsersCreateInput = {
-            name,
-            password: hashedPassword,
-            username: username.toLowerCase(),
-            role,
-        }
+    // Device binding: the request must come from the same device the refresh token was issued to.
 
-        const user = await this.prisma.users.create({
-            data: createUserInput,
-        })
-
-        return user
+    const isValid = await this.validateRefreshToken(user.reFreshTokenHash, input.refreshToken)
+    if (!isValid) {
+      throw new AppException(AuthErrors.InValidRefreshToken)
     }
 
-    /**
-     * * Takes the information for search and sends the found items
-     * @param input Information for search, pagination, sort
-     * @returns Users found
-     */
-    async readUsers(
-        input: ApiReadType<ReadUserInput>,
-    ): Promise<ReadUserOutput> {
-        const rawWhere = input.where || {}
+    const tokens = await this.generateToken(user.username, user.id, deviceId)
+    await this.storeRefreshToken(user.id, tokens.refreshToken)
 
-        let whereClause: Prisma.UsersWhereInput = {
-            id: rawWhere.id,
-            active: rawWhere.active,
-            username: { mode: "insensitive", contains: rawWhere.username },
-            name: { mode: "insensitive", contains: rawWhere.name },
-            role: rawWhere.role,
-        }
+    return tokens
+  }
 
-        whereClause = cleanDeep(whereClause)
+  /**
+   * Hash Password
+   *
+   * @param password The user's password to be Hashed
+   *
+   * @returns Hashed password
+   */
+  async generatedHashedPassword(password: string): Promise<string> {
+    return await argon2.hash(password, {
+      type: argon2.argon2id,
+      memoryCost: this.envConfig.memoryCost,
+      timeCost: this.envConfig.timeCost,
+      parallelism: this.envConfig.parallelism,
+    })
+  }
+  /**
+   * Verify User with UserPassword
+   *
+   * @param userPassword Target user password
+   * @param password Target User password
+   *
+   * @returns result operation
+   *
+   * @throws {AppException} AuthErrors.IncorrectUsernameOrPassword
+   */
+  private async verifyUserPassword(userPassword: string, password: string): Promise<boolean> {
+    const valid = await argon2.verify(userPassword, password)
+    if (!valid) throw new AppException(AuthErrors.IncorrectUsernameOrPassword)
 
-        const count = await this.prisma.users.count({ where: whereClause })
-        const data = await this.prisma.users.findMany({
-            where: whereClause,
-            ...input?.sortBy?.convertToPrismaFilter(),
-            ...input?.pagination?.convertToPrismaFilter(),
-        })
+    return valid
+  }
 
-        return { count, data }
+  /**
+   * Generate Token
+   *
+   * @param username user username
+   * @param userId user id
+   * @param deviceId device fingerprint the tokens are bound to
+   *
+   * @returns user tokens
+   */
+  private async generateToken(username: string, userId: string, deviceId: string): Promise<Tokens> {
+    const payload: JwtPayload = {
+      username: username.toLowerCase(),
+      id: userId,
+      deviceId,
     }
 
-    /**
-     * * Takes the necessary information for update user and sends the updated user
-     * ! The user's password will not be updated in this Api
-     * @param input Necessary data for update user
-     * @returns Updated user Information or throw error
-     * @throws
-     * {@link UserNotFound},
-     * {@link UsernameIsDuplicated},
-     */
-    async updateUser(
-        input: ApiUpdateType<UpdateUserInput, IdInput>,
-    ): Promise<UserModel> {
-        const {
-            data,
-            where: { id },
-        } = input
+    const accessToken = await this.jwt.signAsync(payload)
 
-        const user = await this.verifyUserExistanceByUserId(id)
-        await this.verifyDuplicateUsernameWithException(
-            data.username,
-            user.username,
-        )
+    const refreshToken = await this.jwt.signAsync(payload, {
+      expiresIn: this.envConfig.jwtRefreshExpire,
+    })
 
-        /**
-         * ! The user's password will not be updated
-         */
-        const updatedUser = await this.prisma.users.update({
-            where: {
-                id,
-            },
-            data: {
-                name: data.name,
-                username: data.username.toLowerCase(),
-                active: data.active,
-            },
-        })
+    return { accessToken, refreshToken }
+  }
 
-        return updatedUser
-    }
+  /**
+   * Verify User Existance By Username
+   *
+   * @param username Target username for Verify
+   *
+   * @returns User Object or throw Error
+   *
+   * @throws {AppException} AuthErrors.IncorrectUsernameOrPassword
+   */
+  async verifyUserExistanceByUsername(username: string): Promise<Users> {
+    const user = await this.prisma.users.findUnique({
+      where: {
+        username: username.toLowerCase(),
+      },
+    })
 
-    /**
-     * * Take the information for find user and delete it
-     * @param where Information for find the user
-     * @returns True value or throw Error
-     * @throws
-     * {@link UserNotFound},
-     */
-    async deleteUser(where: IdInput): Promise<SuccessOtput> {
-        const { id } = where
-        await this.verifyUserExistanceByUserId(id)
+    if (!user) throw new AppException(AuthErrors.IncorrectUsernameOrPassword)
 
-        await this.prisma.users.update({
-            where: { id },
-            data: { active: false },
-        })
+    return user
+  }
 
-        return { success: true }
-    }
+  /**
+   * Remove refresh token
+   *
+   * @param userId Target username
+   *
+   * @returns void
+   */
+  private async removeRefreshToken(userId: string): Promise<void> {
+    await this.prisma.users.update({
+      where: { id: userId },
+      data: { reFreshTokenHash: null },
+    })
+  }
 
-    /**
-     * * Take the information for find user and update password
-     * @param input Necessary data for update user's password
-     * @returns True value or throw Error
-     * @throws
-     * {@link UserNotFound},
-     */
-    async changePassword(
-        input: ApiUpdateType<ChangePasswordInput, IdInput>,
-    ): Promise<SuccessOtput> {
-        const {
-            data: { newPassword },
-            where: { id },
-        } = input
+  /**
+   * Verify Refresh token
+   *
+   * @param reFreshTokenHash database refresh token
+   * @param refreshToken requested refresh token
+   *
+   * @returns result of operation
+   */
+  private async validateRefreshToken(
+    reFreshTokenHash: string,
+    refreshToken: string,
+  ): Promise<boolean> {
+    const valid = await argon2.verify(reFreshTokenHash, refreshToken)
+    return valid
+  }
 
-        await this.verifyUserExistanceByUserId(id)
-        const hashedPassword = await this.generatedHashedPassword(newPassword)
-
-        await this.prisma.users.update({
-            where: { id },
-            data: { password: hashedPassword },
-        })
-
-        return { success: true }
-    }
-
-    /**
-     * * Hash Password
-     * @param password The user's password to be Hashed
-     * @returns Hashed password (bcrypt, salted)
-     */
-    private async generatedHashedPassword(password: string): Promise<string> {
-        return await hashPassword(password)
-    }
-
-    /**
-     * * Verify User with password
-     * @param userId Target userId
-     * @param password Target password
-     * @returns User Object or throw Error
-     * @throws
-     * {@link IncorrectUsernameOrPassword},
-     */
-    private async verifyUserPassword(
-        userId: string,
-        password: string,
-    ): Promise<Users> {
-        const user = await this.prisma.users.findUnique({
-            where: { id: userId },
-        })
-
-        const passwordMatches =
-            !!user && (await verifyPassword(password, user.password))
-
-        if (!passwordMatches)
-            throw this.error.throwErrorToClient({
-                errorData: AuthErrors.IncorrectUsernameOrPassword,
-            })
-
-        return user
-    }
-
-    /**
-     * * Verify duplicate username with exception name
-     * @param username Target username for Verify
-     * @param exceptionName The username that should not be considered in the verification operation (Optional)
-     * @returns result of operation
-     * @throws
-     * {@link UsernameIsDuplicated},
-     */
-    private async verifyDuplicateUsernameWithException(
-        username: string,
-        exceptionName?: string,
-    ): Promise<boolean> {
-        const user = await this.prisma.users.findFirst({
-            where: {
-                username: username.toLowerCase(),
-                NOT: {
-                    username: exceptionName,
-                },
-            },
-        })
-
-        if (user)
-            throw this.error.throwErrorToClient({
-                errorData: AuthErrors.UsernameIsDuplicated,
-            })
-
-        return true
-    }
-
-    /**
-     * * Verify User Existance By UserID
-     * @param userId Target User Id for Verify Existance
-     * @returns User Object or throw Error
-     * @throws
-     * {@link UserNotFound},
-     */
-    private async verifyUserExistanceByUserId(userId: string): Promise<Users> {
-        const user = await this.prisma.users.findUnique({
-            where: {
-                id: userId,
-            },
-        })
-
-        if (!user)
-            throw this.error.throwErrorToClient({
-                errorData: AuthErrors.UserNotFound,
-            })
-
-        return user
-    }
-
-    /**
-     * * Verify User Existance By Username
-     * @param username Target username for Verify
-     * @returns User Object or throw Error
-     * @throws
-     * {@link IncorrectUsernameOrPassword},
-     */
-    private async verifyUserExistanceByUsername(
-        username: string,
-    ): Promise<Users> {
-        const user = await this.prisma.users.findUnique({
-            where: {
-                username: username.toLowerCase(),
-            },
-        })
-
-        if (!user)
-            throw this.error.throwErrorToClient({
-                errorData: AuthErrors.IncorrectUsernameOrPassword,
-            })
-
-        return user
-    }
-
-    /**
-     * * Generate Token
-     * @param username Target username
-     * @param userId Target user id
-     * @returns user's token
-     */
-    private async generateToken(
-        username: string,
-        userId: string,
-    ): Promise<string> {
-        const payload: JwtPayloadType = {
-            username: username.toLowerCase(),
-            id: userId,
-        }
-        return await this.jwt.signAsync(payload)
-    }
+  /**
+   * Store refresh Token in db
+   *
+   * @param userId target user
+   * @param refreshToken requested refresh token
+   *
+   * @returns result of operation
+   */
+  private async storeRefreshToken(userId: string, refreshToken: string): Promise<void> {
+    const hashedToken = await this.generatedHashedPassword(refreshToken)
+    await this.prisma.users.update({
+      where: { id: userId },
+      data: { reFreshTokenHash: hashedToken },
+    })
+  }
 }

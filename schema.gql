@@ -2,9 +2,13 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
 # ------------------------------------------------------
 
-type Query {
-  me: UserModel!
-  readUsers(where: ReadUserInput, pagination: PaginationData = {}, sortBy: SortByData): ReadUserOutput!
+type SuccessOutput {
+  success: Boolean!
+}
+
+type LoginOutput {
+  accessToken: String!
+  refreshToken: String!
 }
 
 type UserModel {
@@ -32,7 +36,12 @@ type ReadUserOutput {
   data: [UserModel!]!
 }
 
-input ReadUserInput {
+type Query {
+  me: UserModel!
+  readUsers(where: ReadUserWhereInput, pagination: PaginationData, sortBy: SortByData): ReadUserOutput!
+}
+
+input ReadUserWhereInput {
   id: ID
   username: String
   name: String
@@ -41,30 +50,53 @@ input ReadUserInput {
 }
 
 input PaginationData {
-  take: Float! = 50
-  skip: Float! = 0
+  take: Int = 10
+  skip: Int = 0
 }
 
 input SortByData {
   field: String
-  descending: Boolean
+  descending: Boolean = true
 }
 
 type Mutation {
   logIn(data: LoginInput!): LoginOutput!
+  register(data: RegisterInput!): LoginOutput!
+  logout: SuccessOutput!
+  changePassword(data: ChangePasswordInput!, where: IdInput!): SuccessOutput!
+  refreshToken(data: RefreshTokenInput!): LoginOutput!
+  updateMe(data: UpdateMeInput!): UserModel!
   createUser(data: CreateUserInput!): UserModel!
-  updateUser(data: UpdateUserInput!, where: IdInput!): UserModel!
-  deleteUser(where: IdInput!): SuccessOtput!
-  changePassword(data: ChangePasswordInput!, where: IdInput!): SuccessOtput!
-}
-
-type LoginOutput {
-  jwt: String!
+  updateUser(data: UpdateUserDataInput!, where: IdInput!): UserModel!
+  deleteUser(where: IdInput!): SuccessOutput!
 }
 
 input LoginInput {
   username: String!
   password: String!
+}
+
+input RegisterInput {
+  name: String!
+  username: String!
+  password: String!
+}
+
+input ChangePasswordInput {
+  newPassword: String!
+}
+
+input IdInput {
+  id: String!
+}
+
+input RefreshTokenInput {
+  refreshToken: String!
+}
+
+input UpdateMeInput {
+  name: String
+  username: String
 }
 
 input CreateUserInput {
@@ -74,21 +106,9 @@ input CreateUserInput {
   role: Role!
 }
 
-input UpdateUserInput {
-  username: String!
-  active: Boolean!
+input UpdateUserDataInput {
+  username: String
+  active: Boolean
   role: Role
-  name: String!
-}
-
-input IdInput {
-  id: ID!
-}
-
-type SuccessOtput {
-  success: Boolean!
-}
-
-input ChangePasswordInput {
-  newPassword: String!
+  name: String
 }

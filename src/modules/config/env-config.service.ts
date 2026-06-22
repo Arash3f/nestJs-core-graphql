@@ -1,149 +1,88 @@
-import { Injectable, Logger } from "@nestjs/common"
+import { Injectable } from "@nestjs/common"
 import { ConfigService } from "@nestjs/config"
 import { Role } from "@prisma/client"
-import { CreateUserInput } from "@src/modules/auth/dto/create-user.input"
 import { EnvConfigModel } from "@src/modules/config/model/env-config.model"
-import type {
-    ConfigDatabaseType,
-    NodeEnvType,
-} from "@src/modules/config/types/config.type"
-import { plainToInstance } from "class-transformer"
-import { validateSync } from "class-validator"
+import type { ConfigDatabaseType, EnvType } from "@src/modules/config/types/config.type"
+import { CreateUserInput } from "@src/modules/user/dto/create-user.input"
 
 @Injectable()
 export class EnvConfigService {
-    constructor(private configService: ConfigService) {}
+  constructor(private configService: ConfigService<EnvConfigModel>) {}
 
-    /**
-     * * Get DATABASE_CONNECTION_URL variable from env file
-     */
-    get DATABASE_CONNECTION_URL(): string {
-        return this.configService.get("DATABASE_CONNECTION_URL")
+  get DATABASE_CONNECTION_URL(): string {
+    return this.configService.getOrThrow("DATABASE_CONNECTION_URL")
+  }
+
+  get serverPort(): number {
+    return this.configService.getOrThrow("SERVER_PORT")
+  }
+
+  get jwtSecret(): string {
+    return this.configService.getOrThrow("JWT_SECRET")
+  }
+
+  get jwtAccessExpire(): number {
+    return this.configService.getOrThrow("JWT_ACCESS_EXPIRE")
+  }
+
+  get jwtRefreshExpire(): number {
+    return this.configService.getOrThrow("JWT_REFRESH_EXPIRE")
+  }
+
+  get serverAddress(): string {
+    return this.configService.getOrThrow("SERVER_ADDRESS")
+  }
+
+  get seedOnBoot(): boolean {
+    return this.configService.getOrThrow("SEED_ON_BOOT")
+  }
+
+  get memoryCost(): number {
+    return this.configService.getOrThrow("PASSWORD_HASH_MEMORY_COST")
+  }
+
+  get timeCost(): number {
+    return this.configService.getOrThrow("PASSWORD_HASH_TIME_COST")
+  }
+
+  get parallelism(): number {
+    return this.configService.getOrThrow("PASSWORD_HASH_PARALLELISM")
+  }
+
+  get nodeEnv(): EnvType {
+    const nodeEnv: EnvType = this.configService.getOrThrow("NODE_ENV")
+    return nodeEnv
+  }
+
+  get databaseConfig(): ConfigDatabaseType {
+    const dbConfig: ConfigDatabaseType = {
+      connectionUrl: this.configService.getOrThrow("DATABASE_CONNECTION_URL"),
+      name: this.configService.getOrThrow("DATABASE_NAME"),
+      username: this.configService.getOrThrow("DATABASE_USERNAME"),
+      password: this.configService.getOrThrow("DATABASE_PASSWORD"),
+      port: this.configService.getOrThrow("DATABASE_PORT"),
+      host: this.configService.getOrThrow("DATABASE_HOST"),
     }
+    return dbConfig
+  }
 
-    /**
-     * * Get swaggerDocsPath variable from env file
-     */
-    get swaggerDocsPath(): string {
-        return this.configService.get("swaggerDocsPath")
+  get defaultSuperUser(): CreateUserInput {
+    const defaultUserData: CreateUserInput = {
+      name: this.configService.getOrThrow("SUPER_USER_NAME"),
+      username: this.configService.getOrThrow("SUPER_USER_USERNAME"),
+      password: this.configService.getOrThrow("SUPER_USER_PASSWORD"),
+      role: Role.Admin,
     }
+    return defaultUserData
+  }
 
-    /**
-     * * Get swaggerPath variable from env file
-     */
-    get swaggerPath(): string {
-        return this.configService.get("swaggerPath")
+  get defaultMemberUser(): CreateUserInput {
+    const defaultUserData: CreateUserInput = {
+      name: this.configService.getOrThrow("MEMBER_USER_NAME"),
+      username: this.configService.getOrThrow("MEMBER_USER_USERNAME"),
+      password: this.configService.getOrThrow("MEMBER_USER_PASSWORD"),
+      role: Role.Member,
     }
-
-    /**
-     * * Get serverPort variable from env file
-     */
-    get serverPort(): number {
-        return this.configService.get("serverPort")
-    }
-
-    /**
-     * * Get JwtSecret variable from env file
-     */
-    get jwtSecret(): string {
-        return this.configService.get("jwtSecret")
-    }
-
-    /**
-     * * Get jwtExpire variable from env file
-     */
-    get jwtExpire(): number {
-        return this.configService.get("jwtExpire")
-    }
-
-    /**
-     * * Get serverAddress variable from env file
-     */
-    get serverAddress(): string {
-        return this.configService.get("serverAddress")
-    }
-
-    /**
-     * * Get lokiServerAddress variable from env file
-     */
-    get lokiServerAddress(): string {
-        return this.configService.get("lokiServerAddress")
-    }
-
-    /**
-     * * Get NODE_ENV variable from env file
-     */
-    get nodeEnv(): NodeEnvType {
-        const nodeEnv: NodeEnvType = this.configService.get("NODE_ENV")
-        return nodeEnv
-    }
-
-    /**
-     * * Get all Database config form env file and return it as object
-     */
-    get databaseConfig(): ConfigDatabaseType {
-        const dbConfig: ConfigDatabaseType = {
-            connectionUrl: this.configService.get("DATABASE_CONNECTION_URL"),
-            name: this.configService.get("databaseName"),
-            username: this.configService.get("databaseUsername"),
-            password: this.configService.get("databasePassword"),
-            port: this.configService.get("databasePort"),
-            host: this.configService.get("databaseHost"),
-        }
-        return dbConfig
-    }
-
-    /**
-     * * Get all default super user config form env file and return it as object
-     */
-    get defaultSuperUser(): CreateUserInput {
-        const defaultUserData: CreateUserInput = {
-            name: this.configService.get("SUPER_USER_NAME"),
-            username: this.configService.get("SUPER_USER_USERNAME"),
-            password: this.configService.get("SUPER_USER_PASSWORD"),
-            role: Role.Admin,
-        }
-        return defaultUserData
-    }
-
-    /**
-     * * Get all default member user config form env file and return it as object
-     */
-    get defaultMemberUser(): CreateUserInput {
-        const defaultUserData: CreateUserInput = {
-            name: this.configService.get("MEMBER_USER_NAME"),
-            username: this.configService.get("MEMBER_USER_USERNAME"),
-            password: this.configService.get("MEMBER_USER_PASSWORD"),
-            role: Role.Member,
-        }
-        return defaultUserData
-    }
-
-    /**
-     * * This validation use in the setup project and check all envirements with {@link EnvConfigModel}, use in app.module.ts
-     * @param config
-     * @returns Environment Variables
-     */
-    static environmentValidation(
-        config: Record<string, unknown>,
-    ): EnvConfigModel {
-        const logger = new Logger(EnvConfigService.name)
-
-        const validatedConfig = plainToInstance(EnvConfigModel, config, {
-            enableImplicitConversion: true,
-        })
-        const validationErrors = validateSync(validatedConfig, {
-            skipMissingProperties: false,
-        })
-
-        if (validationErrors.length > 0) {
-            validationErrors.forEach((err) => {
-                const errorMessage = Object.values(err.constraints)
-                errorMessage.forEach((error) => logger.error(error))
-            })
-
-            process.exit(1)
-        }
-        return validatedConfig
-    }
+    return defaultUserData
+  }
 }

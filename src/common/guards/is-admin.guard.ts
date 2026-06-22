@@ -1,26 +1,47 @@
-import { CanActivate, ExecutionContext, Inject } from "@nestjs/common"
+import type { CanActivate, ExecutionContext } from "@nestjs/common"
+import { Injectable } from "@nestjs/common"
 import { GqlExecutionContext } from "@nestjs/graphql"
 import { Role } from "@prisma/client"
-import { TokenGuardData } from "@src/common/types/token.type"
+import { AppException } from "@src/app.exception"
+import { AuthenticatedRequest } from "@src/common/types/request.type"
 import { AuthErrors } from "@src/modules/auth/constants/errors"
-import { ErrorService } from "@src/modules/error/error.service"
+import { PrismaService } from "@src/modules/prisma/prisma.service"
 
-/**
- * * This guard performs user's role to be Admin
- */
-export class IsAdmin implements CanActivate {
-    constructor(@Inject(ErrorService) private error: ErrorService) {}
+@Injectable()
+export class IsAdminGuard implements CanActivate {
+  constructor(private prisma: PrismaService) {}
 
-    canActivate(context: ExecutionContext) {
-        const ctx = GqlExecutionContext.create(context)
-        const request = ctx.getContext().req
-        const tokenData: TokenGuardData = request.headers._tokenGuard
+  /**
+   * Allows the request only when the authenticated user has the `Admin` role.
+   *
+   * @param context - The execution context for the incoming request.
+   * @returns `true` when the user is an admin.
+   * @throws {AppException} AuthErrors.UserIsNotAuthorized - When no authenticated user is attached to the request.
+   * @throws {AppException} AuthErrors.AccessDenied - When the authenticated user is not an admin.
+   */
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const req = GqlExecutionContext.create(context).getContext<{ req: AuthenticatedRequest }>().req
 
-        if (tokenData?.user) {
-            if (tokenData.user.role == Role.Admin) return true
-        }
-        throw this.error.throwErrorToClient({
-            errorData: AuthErrors.AccessDenied,
-        })
+    if (!req.user) {
+      throw new AppException(AuthErrors.UserIsNotAuthorized)
     }
+
+    /**
+     * Verify User Role
+     */
+    const findUser = await this.prisma.users.findUnique({
+      where: {
+        id: req.user.id,
+      },
+      select: {
+        role: true,
+      },
+    })
+
+    if (findUser?.role !== Role.Admin) {
+      throw new AppException(AuthErrors.AccessDenied)
+    }
+
+    return true
+  }
 }

@@ -1,35 +1,33 @@
 {
   "compilerOptions": {
-    "target": "ES2021",
     "module": "commonjs",
-    "ignoreDeprecations": "6.0",
-    "baseUrl": ".",
-    "strict": false,
-    "strictNullChecks": false,
-    "noImplicitAny": false,
-    "declaration": false,
-    "sourceMap": true,
-    "outDir": "./dist",
-    "removeComments": true,
-    "importHelpers": true,
-    "esModuleInterop": true,
+    "target": "ES2021",
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
-    "forceConsistentCasingInFileNames": true,
+    "sourceMap": true,
+    "outDir": "./dist",
+    "incremental": true,
     "skipLibCheck": true,
+    "strict": true,
+    "types": ["node", "jest"],
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true,
+    "strictPropertyInitialization": false,
+    "esModuleInterop": true,
     "resolveJsonModule": true,
     "allowSyntheticDefaultImports": true,
-    "incremental": true,
-    "tsBuildInfoFile": "./dist/build-info.json",
-    "types": [
-      "node",
-      "jest"
-    ],
+    "ignoreDeprecations": "6.0",
+    "baseUrl": "./",
     "paths": {
-      "@src/*": [
-        "./src/*"
-      ]
-    }
+      "@src/*": ["src/*"]
+    },
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "forceConsistentCasingInFileNames": true
   },
   "typedocOptions": {
     "out": "doc",

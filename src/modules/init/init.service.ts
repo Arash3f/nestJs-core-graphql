@@ -1,70 +1,72 @@
-import { Injectable, Logger } from "@nestjs/common"
-import { Role } from "@prisma/client"
-import { CreateUserInput } from "@src/modules/auth/dto/create-user.input"
-import type { ErrorInfo } from "@src/modules/error/constants/type"
-import { ErrorService } from "@src/modules/error/error.service"
+import { Injectable, Logger, OnApplicationBootstrap } from "@nestjs/common"
+import { EnvConfigService } from "@src/modules/config/env-config.service"
 import { PrismaService } from "@src/modules/prisma/prisma.service"
-import { hashPassword } from "@src/utils/password"
+import { CreateUserInput } from "@src/modules/user/dto/create-user.input"
+import * as argon2 from "argon2"
 
 @Injectable()
-export class InitService {
-    constructor(
-        private error: ErrorService,
-        private prisma: PrismaService,
-    ) {}
+export class InitService implements OnApplicationBootstrap {
+  /**
+   * generate logger library
+   */
+  private readonly logger = new Logger(InitService.name)
 
-    private readonly logger = new Logger(InitService.name)
+  /**
+   * Import app services
+   * @param prisma prisma service for connect to database
+   */
+  constructor(
+    private prisma: PrismaService,
+    private readonly envConf: EnvConfigService,
+  ) {}
 
-    /**
-     * * Generate all project errors
-     * @param projectErrors Collection of errors
-     * @returns The result of the operation
-     */
-    generateProjectErrors(projectErrors: ErrorInfo[]): boolean {
-        for (const errInfo of projectErrors) {
-            this.error.createNewErrorTranslation(errInfo)
-        }
-        this.logger.log("All project errors were created Successfully")
+  /**
+   * Seeds the default super-user and member-user on application startup.
+   *
+   * No-op unless `SEED_ON_BOOT` is enabled. Each user is upserted so the seed
+   * is safe to run on every boot.
+   */
+  async onApplicationBootstrap() {
+    if (this.envConf.seedOnBoot !== true) return
 
-        return true
+    try {
+      this.logger.verbose("Seed Admin user started ...")
+      await this.seedUser(this.envConf.defaultSuperUser)
+
+      this.logger.verbose("Seed Member user started ...")
+      await this.seedUser(this.envConf.defaultMemberUser)
+
+      this.logger.verbose("Seed service finished :)")
+    } catch (error) {
+      this.logger.error("Seed service failed", error instanceof Error ? error.stack : error)
+      throw error
     }
+  }
 
-    /**
-     * * Generate Super User With Admin Role
-     * @param superUserData SuperUser Data
-     */
-    async generateSuperUserWithAdminRole(
-        superUserData: CreateUserInput,
-    ): Promise<void> {
-        /**
-         * ? Find Super User
-         */
-        let adminUser = await this.prisma.users.findFirst({
-            where: { username: superUserData.username },
-        })
+  /**
+   * Upserts a single user from the given config.
+   *
+   * @param userConfig - Name, username, password and role of the user to seed
+   *
+   * @returns A promise that resolves once the user has been upserted.
+   */
+  private async seedUser(userConfig: CreateUserInput): Promise<void> {
+    const { name, username, password, role } = userConfig
 
-        /**
-         * ! Admin User not Found ---> Create Admin User
-         */
-        if (!adminUser?.id) {
-            superUserData.password = await hashPassword(superUserData.password)
+    const passwordHash = await argon2.hash(password, {
+      type: argon2.argon2id,
+      memoryCost: this.envConf.memoryCost,
+      timeCost: this.envConf.timeCost,
+      parallelism: this.envConf.parallelism,
+    })
 
-            adminUser = await this.prisma.users.create({
-                data: superUserData,
-            })
-        }
+    const fields = { name, username, role, active: true }
+    const createFields = { ...fields, passwordHash }
 
-        /**
-         * ? Connect role To Admin User
-         */
-        await this.prisma.users.update({
-            where: {
-                id: adminUser.id,
-            },
-            data: {
-                role: Role.Admin,
-                active: true,
-            },
-        })
-    }
+    await this.prisma.users.upsert({
+      where: { username },
+      update: fields,
+      create: createFields,
+    })
+  }
 }

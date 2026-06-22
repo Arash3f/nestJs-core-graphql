@@ -1,91 +1,53 @@
-import {
-    CanActivate,
-    ExecutionContext,
-    forwardRef,
-    Inject,
-    Injectable,
-} from "@nestjs/common"
+import type { CanActivate, ExecutionContext } from "@nestjs/common"
+import { Injectable } from "@nestjs/common"
 import { GqlExecutionContext } from "@nestjs/graphql"
 import { JwtService } from "@nestjs/jwt"
-import { JwtType, TokenGuardData } from "@src/common/types/token.type"
-import { EnvConfigService } from "@src/modules/config/env-config.service"
-import { PrismaService } from "@src/modules/prisma/prisma.service"
+import { AuthenticatedRequest, JwtPayload, RequestUser } from "@src/common/types/request.type"
+import { getDeviceFingerprint } from "@src/common/utils/device-fingerprint.util"
+import { getJwtFromRequest } from "@src/common/utils/jwt-extract.util"
 
-/**
- * * This guard performs several activities
- *
- * * 1) Check token (It does not throw error for invalid token)
- * * 2) Set requester Object in header (If exist)
- * * 3) Push data in requester header (In _tokenGuard)
- *
- * !Note: This guard is used globaly in all requests
- *
- */
 @Injectable()
 export class TokenGuard implements CanActivate {
-    constructor(
-        @Inject(forwardRef(() => JwtService))
-        private jwt: JwtService,
-        private prisma: PrismaService,
-        private apiConfigService: EnvConfigService,
-    ) {}
+  constructor(private readonly jwtService: JwtService) {}
 
-    async canActivate(context: ExecutionContext) {
-        const requestCheck = context.switchToHttp().getRequest()
+  /**
+   * Decodes the bearer JWT and attaches `req.user` when it verifies and the token's
+   * device fingerprint matches the calling device.
+   *
+   * Non-blocking by design: it never rejects the request. A missing, malformed, invalid,
+   * or device-mismatched token simply leaves `req.user` unset — downstream guards enforce
+   * authorization. A token issued on one device (e.g. a phone) therefore fails to
+   * authenticate when replayed from another device (e.g. a laptop), since the request's
+   * User-Agent fingerprint no longer matches the `deviceId` claim baked into the token.
+   *
+   * @param context - The execution context for the incoming request.
+   * @returns `true` always.
+   */
+  canActivate(context: ExecutionContext): boolean {
+    const req = GqlExecutionContext.create(context).getContext<{ req: AuthenticatedRequest }>().req
 
-        if (requestCheck) {
-            return true
-        }
-        const ctx = GqlExecutionContext.create(context)
-        const request: { headers: Record<string, any> } = ctx.getContext().req
-        const authorization: string = request.headers["authorization"] || ""
+    const token = getJwtFromRequest(req)
+    if (!token) return true
 
-        /**
-         * * Get User's Token
-         */
-        const token = authorization.replace("bearer ", "").replace("jwt ", "")
+    try {
+      const payload = this.jwtService.verify<JwtPayload>(token)
 
-        try {
-            const bodyData: JwtType = this.jwt.verify(token, {
-                secret: this.apiConfigService.jwtSecret,
-                ignoreExpiration: false,
-            })
-            const tokenData: TokenGuardData = {}
-
-            if (bodyData) {
-                const userId = bodyData.id
-                const foundUser = await this.prisma.users.findUnique({
-                    where: { id: userId },
-                })
-
-                /**
-                 * * Set user's object in requester's header
-                 */
-                if (foundUser && foundUser.active) {
-                    tokenData.user = {
-                        id: foundUser.id,
-                        active: foundUser.active,
-                        username: foundUser.username,
-                        role: foundUser.role,
-                    }
-                    tokenData.payload = {
-                        jwtInitDate: bodyData.iat,
-                    }
-                }
-
-                /**
-                 * ! Save data in requester's header
-                 */
-                request.headers["_tokenGuard"] = tokenData
-            }
-        } catch (tokenError) {
-            /**
-             * ! If requester does not have a token or it is empty
-             */
-            const tokenData: TokenGuardData = { tokenError }
-            request.headers["_tokenGuard"] = tokenData
-        }
-
+      // Bind the token to its issuing device: a token replayed from a different
+      // device has a mismatching fingerprint and is treated as unauthenticated.
+      if (payload.deviceId && payload.deviceId !== getDeviceFingerprint(req)) {
         return true
+      }
+
+      const userPayload: RequestUser = {
+        id: payload.id,
+        username: payload.username,
+      }
+
+      req.user = userPayload
+    } catch {
+      return true
     }
+
+    return true
+  }
 }
