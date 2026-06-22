@@ -142,7 +142,13 @@ export class AuthService {
    * @throws {AppException} AuthErrors.InValidRefreshToken
    */
   async refreshToken(input: RefreshTokenInput, deviceId: string): Promise<LoginOutput> {
-    const decodeToken = this.jwt.decode<JwtPayload>(input.refreshToken)
+    let decodeToken: JwtPayload
+    try {
+      decodeToken = await this.jwt.verifyAsync<JwtPayload>(input.refreshToken)
+    } catch {
+      throw new AppException(AuthErrors.InValidRefreshToken)
+    }
+
     if (decodeToken.deviceId !== deviceId) {
       throw new AppException(AuthErrors.DeviceMismatch)
     }

@@ -61,7 +61,7 @@ importers:
         specifier: ^5.8.5
         version: 5.8.5
       graphql:
-        specifier: ^16.11.0
+        specifier: ^16.14.2
         version: 16.14.2
       pg:
         specifier: ^8.22.0
@@ -73,14 +73,14 @@ importers:
         specifier: ^7.8.2
         version: 7.8.2
       tslib:
-        specifier: ^2.6.2
+        specifier: ^2.8.1
         version: 2.8.1
       uuid:
-        specifier: ^13.0.0
+        specifier: ^13.0.2
         version: 13.0.2
     devDependencies:
       '@compodoc/compodoc':
-        specifier: ^1.1.26
+        specifier: ^1.2.1
         version: 1.2.1(@egjs/hammerjs@2.0.17)(component-emitter@2.0.0)(keycharm@0.4.0)(typescript@6.0.3)(vis-data@8.0.4(uuid@13.0.2)(vis-util@6.0.0(@egjs/hammerjs@2.0.17)(component-emitter@2.0.0)))(vis-util@6.0.0(@egjs/hammerjs@2.0.17)(component-emitter@2.0.0))
       '@eslint/js':
         specifier: ^9.39.4
@@ -98,13 +98,13 @@ importers:
         specifier: ^1.15.41
         version: 1.15.41(@swc/helpers@0.5.23)
       '@types/jest':
-        specifier: ^29.5.12
+        specifier: ^29.5.14
         version: 29.5.14
       '@types/multer':
-        specifier: ^1.4.11
+        specifier: ^1.4.13
         version: 1.4.13
       '@types/node':
-        specifier: ^24.10.1
+        specifier: ^24.13.2
         version: 24.13.2
       '@types/pg':
         specifier: ^8.20.0
@@ -113,13 +113,13 @@ importers:
         specifier: ^4.0.3
         version: 4.0.3
       commitizen:
-        specifier: ^4.3.1
+        specifier: ^4.3.2
         version: 4.3.2(@types/node@24.13.2)(typescript@6.0.3)
       commitlint-config-gitmoji:
         specifier: ^2.3.1
         version: 2.3.1
       cz-customizable:
-        specifier: ^7.4.0
+        specifier: ^7.5.4
         version: 7.5.4
       env-cmd:
         specifier: ^10.1.0
@@ -128,7 +128,7 @@ importers:
         specifier: ^9.39.4
         version: 9.39.4(jiti@2.7.0)
       eslint-config-prettier:
-        specifier: ^9.1.0
+        specifier: ^9.1.2
         version: 9.1.2(eslint@9.39.4(jiti@2.7.0))
       eslint-plugin-prettier:
         specifier: ^5.5.6
@@ -149,19 +149,19 @@ importers:
         specifier: ^15.5.2
         version: 15.5.2
       prettier:
-        specifier: ^3.4.2
+        specifier: ^3.8.4
         version: 3.8.4
       prisma:
         specifier: ^7.8.0
         version: 7.8.0(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(typescript@6.0.3)
       run-script-webpack-plugin:
-        specifier: ^0.2.0
+        specifier: ^0.2.3
         version: 0.2.3
       ts-jest:
         specifier: ^29.4.11
         version: 29.4.11(@babel/core@7.29.7)(@jest/transform@29.7.0)(@jest/types@29.6.3)(babel-jest@29.7.0(@babel/core@7.29.7))(jest-util@29.7.0)(jest@29.7.0(@types/node@24.13.2)(ts-node@10.9.2(@swc/core@1.15.41(@swc/helpers@0.5.23))(@types/node@24.13.2)(typescript@6.0.3)))(typescript@6.0.3)
       ts-loader:
-        specifier: ^9.5.1
+        specifier: ^9.6.1
         version: 9.6.1(typescript@6.0.3)(webpack@5.107.2(@swc/core@1.15.41(@swc/helpers@0.5.23)))
       ts-node:
         specifier: ^10.9.2
@@ -176,7 +176,7 @@ importers:
         specifier: ^8.61.1
         version: 8.61.1(eslint@9.39.4(jiti@2.7.0))(typescript@6.0.3)
       webpack:
-        specifier: ^5.97.1
+        specifier: ^5.107.2
         version: 5.107.2(@swc/core@1.15.41(@swc/helpers@0.5.23))
       webpack-node-externals:
         specifier: ^3.0.0
@@ -4946,6 +4946,10 @@ packages:
     resolution: {integrity: sha512-XgFPPM+B28FtCCgSb9I+s9szOC1vZRSwgWsRUA5ylIxRTgKozqjOCrVOqGsYABPYK5qnfqClxZTFBa8PKt2v6Q==}
     engines: {node: '>=12'}
 
+  open@8.4.2:
+    resolution: {integrity: sha512-7x81NCL719oNbsq/3mh+hVrAWmFuEYUqrq/Iw3kUzH8ReypT9QQ0BLoJS7/G9k6N81XjW4qHWtjWwe/9eLy1EQ==}
+    engines: {node: '>=12'}
+
   opencollective-postinstall@2.0.3:
     resolution: {integrity: sha512-8AV/sCtuzUeTo8gQK5qDZzARrulB3egtLzFgteqB2tcT4Mw7B8Kt7JcDHmltjz6FOAHsvTevk70gZEbhM4ZS9Q==}
     hasBin: true
@@ -6354,6 +6358,18 @@ packages:
 
   ws@8.20.1:
     resolution: {integrity: sha512-It4dO0K5v//JtTXuPkfEOaI3uUN87iYPnqo/ZzqCoG3g8uhA66QUMs/SrM0YK7/NAu+r4LMh/9dq2A7k+rHs+w==}
+    engines: {node: '>=10.0.0'}
+    peerDependencies:
+      bufferutil: ^4.0.1
+      utf-8-validate: '>=5.0.2'
+    peerDependenciesMeta:
+      bufferutil:
+        optional: true
+      utf-8-validate:
+        optional: true
+
+  ws@8.21.0:
+    resolution: {integrity: sha512-Vsp28b7DRcimFQvrqu2Wek3z1iYxDCWqHYB8Qsnk/S4RfaCQzPGPyBNuVjJV3cd6UiKtUtp6sNM77gWvzcCH+g==}
     engines: {node: '>=10.0.0'}
     peerDependencies:
       bufferutil: ^4.0.1
@@ -9777,7 +9793,7 @@ snapshots:
       inquirer: 9.3.8(@types/node@24.13.2)
       mime: 3.0.0
       node-fetch: 3.3.2
-      open: 8.4.0
+      open: 8.4.2
       ora: 6.3.1
       picocolors: 1.1.1
       pkg-install: 1.0.0
@@ -9785,7 +9801,7 @@ snapshots:
       run-async: 2.4.1
       ts-node: 10.9.2(@swc/core@1.15.41(@swc/helpers@0.5.23))(@types/node@24.13.2)(typescript@6.0.3)
       ts-patch: 3.3.0
-      ws: 8.20.1
+      ws: 8.21.0
       yargs: 17.7.3
     transitivePeerDependencies:
       - '@swc/core'
@@ -12034,6 +12050,12 @@ snapshots:
       is-docker: 2.2.1
       is-wsl: 2.2.0
 
+  open@8.4.2:
+    dependencies:
+      define-lazy-prop: 2.0.0
+      is-docker: 2.2.1
+      is-wsl: 2.2.0
+
   opencollective-postinstall@2.0.3: {}
 
   optionator@0.9.4:
@@ -13446,6 +13468,8 @@ snapshots:
   ws@7.5.11: {}
 
   ws@8.20.1: {}
+
+  ws@8.21.0: {}
 
   xss@1.0.15:
     dependencies:
