@@ -31,14 +31,14 @@ export class TokenGuard implements CanActivate {
     ) {}
 
     async canActivate(context: ExecutionContext) {
-        const requestCheck = context.switchToHttp().getRequest();
+        const requestCheck = context.switchToHttp().getRequest()
 
         if (requestCheck) {
             return true
         }
         const ctx = GqlExecutionContext.create(context)
-        const request: Request = ctx.getContext().req
-        const authorization = request.headers["authorization"] || ""
+        const request: { headers: Record<string, any> } = ctx.getContext().req
+        const authorization: string = request.headers["authorization"] || ""
 
         /**
          * * Get User's Token
@@ -48,7 +48,7 @@ export class TokenGuard implements CanActivate {
         try {
             const bodyData: JwtType = this.jwt.verify(token, {
                 secret: this.apiConfigService.jwtSecret,
-                ignoreExpiration: true,
+                ignoreExpiration: false,
             })
             const tokenData: TokenGuardData = {}
 

@@ -2,7 +2,7 @@ import { PrismaClient, Role } from "@prisma/client"
 import { serverAddress } from "@src/constants"
 import { EnvConfigService } from "@src/modules/config/env-config.service"
 import { Thunder } from "@src/utils/graphql/zeus"
-import hasha from "hasha"
+import { hashPassword } from "@src/utils/password"
 
 /**
  * * Implementation Fetch class for request to server (use in testing)
@@ -24,24 +24,18 @@ class Fetch {
      * * Main point of send request
      */
     private thunder = Thunder(async (query, variables) => {
-        try {
-            const response = await fetch(serverAddress, {
-                body: JSON.stringify({ query, variables }),
-                method: "POST",
-                headers: this.makeHeader(),
-            })
+        const response = await fetch(serverAddress, {
+            body: JSON.stringify({ query, variables }),
+            method: "POST",
+            headers: this.makeHeader(),
+        })
 
-            // eslint-disable-next-line @typescript-eslint/ban-ts-ignore
-            //@ts-ignore
-            const { data, errors } = await response.json()
-            const hasError = this.hasError(errors)
+        const { data, errors } = await response.json()
+        const hasError = this.hasError(errors)
 
-            if (hasError) throw errors
+        if (hasError) throw errors
 
-            return data
-        } catch (err) {
-            return Promise.reject(err)
-        }
+        return data
     })
 
     /**
@@ -119,15 +113,12 @@ class Fetch {
     }
 
     async resetDatabase() {
-        await Promise.all([await this.prisma.users.deleteMany()])
+        await this.prisma.users.deleteMany()
     }
 
     async createSuperUser() {
-        const password = await hasha.async(
+        const password = await hashPassword(
             this.apiConfigService.defaultSuperUser.password,
-            {
-                algorithm: "sha1",
-            },
         )
         await this.prisma.users.create({
             data: {
@@ -140,11 +131,8 @@ class Fetch {
     }
 
     async createMemberUser() {
-        const password = await hasha.async(
+        const password = await hashPassword(
             this.apiConfigService.defaultMemberUser.password,
-            {
-                algorithm: "sha1",
-            },
         )
         await this.prisma.users.create({
             data: {

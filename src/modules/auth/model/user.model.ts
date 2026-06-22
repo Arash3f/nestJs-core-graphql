@@ -1,5 +1,4 @@
-import { ID, ObjectType, registerEnumType } from "@nestjs/graphql"
-import { Field } from "@nestjs/graphql/dist/decorators"
+import { Field, ID, ObjectType, registerEnumType } from "@nestjs/graphql"
 import { Role } from "@prisma/client"
 import { IsBoolean, IsDate, IsEnum, IsString, IsUUID } from "class-validator"
 

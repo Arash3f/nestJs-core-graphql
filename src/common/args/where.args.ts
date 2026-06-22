@@ -1,5 +1,4 @@
 import { Args, ArgsOptions } from "@nestjs/graphql"
-import deepMerge from "deepmerge"
 
 /**
  * This function is implemented for convenience in using the (Args)
@@ -24,11 +23,11 @@ export function WhereOptionalArg<T>(
     ClassType: T,
     args?: ArgsOptions,
 ): ParameterDecorator {
-    const innerArgs = deepMerge(args as T, {
+    return Args("where", {
+        ...args,
         type: () => ClassType,
         nullable: true,
-    })
-    return Args("where", innerArgs)
+    } as ArgsOptions)
 }
 
 /**
@@ -56,6 +55,5 @@ export function WhereRequirementArg<T>(
     ClassType: T,
     args?: ArgsOptions,
 ): ParameterDecorator {
-    const innerArgs = deepMerge(args as T, { type: () => ClassType })
-    return Args("where", innerArgs)
+    return Args("where", { ...args, type: () => ClassType } as ArgsOptions)
 }

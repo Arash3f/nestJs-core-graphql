@@ -21,8 +21,8 @@ import { UserModel } from "@src/modules/auth/model/user.model"
 import { EnvConfigService } from "@src/modules/config/env-config.service"
 import { ErrorService } from "@src/modules/error/error.service"
 import { PrismaService } from "@src/modules/prisma/prisma.service"
+import { hashPassword, verifyPassword } from "@src/utils/password"
 import cleanDeep from "clean-deep"
-import hasha from "hasha"
 
 @Injectable()
 export class AuthService {
@@ -211,10 +211,10 @@ export class AuthService {
     /**
      * * Hash Password
      * @param password The user's password to be Hashed
-     * @returns Hashed password
+     * @returns Hashed password (bcrypt, salted)
      */
     private async generatedHashedPassword(password: string): Promise<string> {
-        return await hasha.async(password, { algorithm: "sha1" })
+        return await hashPassword(password)
     }
 
     /**
@@ -229,16 +229,14 @@ export class AuthService {
         userId: string,
         password: string,
     ): Promise<Users> {
-        const hashedPassword = await this.generatedHashedPassword(password)
-
-        const user = await this.prisma.users.findFirst({
-            where: {
-                id: userId,
-                password: hashedPassword,
-            },
+        const user = await this.prisma.users.findUnique({
+            where: { id: userId },
         })
 
-        if (!user)
+        const passwordMatches =
+            !!user && (await verifyPassword(password, user.password))
+
+        if (!passwordMatches)
             throw this.error.throwErrorToClient({
                 errorData: AuthErrors.IncorrectUsernameOrPassword,
             })

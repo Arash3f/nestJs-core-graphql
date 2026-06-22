@@ -1,10 +1,15 @@
 import { Args, ArgsOptions } from "@nestjs/graphql"
-import deepmerge from "deepmerge"
 
+/**
+ * * Convenience wrapper around `@Args("data", ...)` that injects the GraphQL
+ * * input type so resolvers can simply write `@DataArg(LoginInput) data`.
+ * @typeParam T - One of the DTO class types
+ * @param ClassType Object type for the `data` argument
+ * @param args Optional extra `@Args` options
+ */
 export function DataArg<T>(
     ClassType: T,
     args?: ArgsOptions,
 ): ParameterDecorator {
-    const innerArgs = deepmerge(args as T, { type: () => ClassType })
-    return Args("data", innerArgs)
+    return Args("data", { ...args, type: () => ClassType } as ArgsOptions)
 }

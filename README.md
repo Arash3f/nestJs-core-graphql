@@ -6,17 +6,41 @@
 
 ## Description
 
-Core project for NestJs framework
+Core project for the NestJS framework (GraphQL + Fastify + Prisma).
+
+Stack: NestJS 11, Apollo Server 5 (`@nestjs/graphql` 13), Fastify 5, Prisma 7
+(PostgreSQL via the `@prisma/adapter-pg` driver adapter), TypeScript 6.
+
+## Requirements
+
+- Node.js >= 20 (developed/tested on Node 24)
+- pnpm >= 10
+- A PostgreSQL database
 
 ## Installation
 
 ```bash
-pnpm  install
+pnpm install
 ```
 
-## Hasky
+> On first install, pnpm asks to approve native build scripts (Prisma engines,
+> SWC). They are pre-approved in `pnpm-workspace.yaml`.
 
-  For better comment message in git use hasky library with cz-customizable
+Then generate the Prisma client and copy the environment file:
+
+```bash
+cp .env.sample .env.dev   # then fill in the values
+pnpm exec prisma generate
+```
+
+> Prisma 7 note: the database connection URL is no longer stored in
+> `schema.prisma`. It lives in `prisma.config.ts` (read from
+> `DATABASE_CONNECTION_URL`) for CLI commands, and the running app connects
+> through the pg driver adapter configured in `prisma.service.ts`.
+
+## Husky
+
+  For better commit messages, this project uses Husky with cz-customizable.
 
 ```bash
 # prepare

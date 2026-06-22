@@ -4,7 +4,7 @@ import { CreateUserInput } from "@src/modules/auth/dto/create-user.input"
 import type { ErrorInfo } from "@src/modules/error/constants/type"
 import { ErrorService } from "@src/modules/error/error.service"
 import { PrismaService } from "@src/modules/prisma/prisma.service"
-import hasha from "hasha"
+import { hashPassword } from "@src/utils/password"
 
 @Injectable()
 export class InitService {
@@ -47,9 +47,7 @@ export class InitService {
          * ! Admin User not Found ---> Create Admin User
          */
         if (!adminUser?.id) {
-            superUserData.password = await hasha.async(superUserData.password, {
-                algorithm: "sha1",
-            })
+            superUserData.password = await hashPassword(superUserData.password)
 
             adminUser = await this.prisma.users.create({
                 data: superUserData,

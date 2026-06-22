@@ -1,5 +1,6 @@
 import type { OnModuleDestroy, OnModuleInit } from "@nestjs/common"
 import { Injectable, Logger } from "@nestjs/common"
+import { PrismaPg } from "@prisma/adapter-pg"
 import { Prisma, PrismaClient } from "@prisma/client"
 import { EnvConfigService } from "@src/modules/config/env-config.service"
 import { NodeEnvType } from "@src/modules/config/types/config.type"
@@ -35,7 +36,13 @@ export class PrismaService
             )
         }
 
+        /**
+         * * Prisma 7 connects through a driver adapter instead of reading the
+         * * connection URL from schema.prisma. The pg adapter receives the URL
+         * * from the validated application config.
+         */
         super({
+            adapter: new PrismaPg(envConfigService.DATABASE_CONNECTION_URL),
             log: logConfig,
         })
     }

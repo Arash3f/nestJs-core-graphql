@@ -90,7 +90,10 @@ export class ErrorService {
      * @param gqlError Graphql Formatted Error
      * @returns new error
      */
-    static errorFilter(gqlError: GraphQLFormattedError, config: EnvConfigService): ErrorType {
+    static errorFilter(
+        gqlError: GraphQLFormattedError,
+        config: EnvConfigService,
+    ): ErrorType {
         const logger = new Logger(ErrorService.name)
         const originalError = gqlError.extensions?.originalError
         const appError = gqlError.message
@@ -118,7 +121,9 @@ export class ErrorService {
             module: productMode ? undefined : erroObject.module,
             code: productMode ? undefined : erroObject.code,
             message: productMode ? undefined : erroObject.message,
-            developerMessage: productMode ? undefined : erroObject.developerMessage,
+            developerMessage: productMode
+                ? undefined
+                : erroObject.developerMessage,
             persianTranslation: productMode
                 ? undefined
                 : erroObject.persianTranslation,

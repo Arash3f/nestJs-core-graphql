@@ -1,2 +1,2 @@
-#!/bin/sh
-exec < /dev/tty && git cz --hook || true
+# #!/bin/sh
+# exec < /dev/tty && git cz --hook || true

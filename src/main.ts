@@ -3,13 +3,11 @@ import { NestFactory } from "@nestjs/core"
 import { JwtService } from "@nestjs/jwt"
 import type { NestFastifyApplication } from "@nestjs/platform-fastify"
 import { FastifyAdapter } from "@nestjs/platform-fastify"
-import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger"
 import { AppModule } from "@src/app.module"
 import { TokenGuard } from "@src/common/guards/token.guard"
 import { EnvConfigService } from "@src/modules/config/env-config.service"
 import { NodeEnvType } from "@src/modules/config/types/config.type"
 import { PrismaService } from "@src/modules/prisma/prisma.service"
-import type { ServerResponse } from "http"
 
 declare const module: any
 

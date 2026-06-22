@@ -45,19 +45,22 @@ import { LokiLoggerModule } from "nestjs-loki-logger"
         ErrorModule,
         EnvConfigModule,
         InitModule,
-        GraphQLModule.forRoot({
+        GraphQLModule.forRootAsync<ApolloDriverConfig>({
             driver: ApolloDriver,
-            formatError: ErrorService.errorFilter,
-            autoSchemaFile: "schema.gql",
-            playground: true,
-            cors: {
-                origin: "*",
-                methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
-                allowedHeaders:
-                    "Content-Type, Accept, multipart-form, Origin,X-Requested-With,Authorization,authorization,X-Forwarded-for",
-                preflightContinue: false,
-                optionsSuccessStatus: 200,
-            },
+            imports: [EnvConfigModule],
+            inject: [EnvConfigService],
+            // The factory injects EnvConfigService so that errorFilter can read
+            // the real NODE_ENV. Previously formatError was passed statically,
+            // so its second argument was Apollo's error object (not the config)
+            // and production never hid internal error details.
+            useFactory: (apiConfigService: EnvConfigService) => ({
+                autoSchemaFile: "schema.gql",
+                formatError: (formattedError) =>
+                    ErrorService.errorFilter(formattedError, apiConfigService),
+            }),
+            // CORS is configured globally in main.ts (app.enableCors). The
+            // GraphQL driver no longer accepts a `cors` option in
+            // @nestjs/apollo v13 / Apollo Server 5.
         }),
     ],
 })
