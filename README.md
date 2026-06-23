@@ -34,11 +34,11 @@ It ships with the plumbing most projects rewrite every time:
 - 🧩 **Typed error catalog** — every module declares its own errors (code,
   HTTP status, message, Persian translation) and they're normalized into a
   single GraphQL error shape, with internal details stripped in production.
-- 🧪 **Typed e2e testing** — tests talk to the API through a generated
-  [Zeus](https://github.com/graphql-editor/graphql-zeus) client, not hand-written
-  query strings.
-- 📊 **Observability** — Prometheus metrics (`/metrics`) and Loki logging wired
-  in globally.
+- 🧪 **Typed tests** — e2e specs talk to the API through a generated
+  [Zeus](https://github.com/graphql-editor/graphql-zeus) client, plus unit tests
+  for guards, filters, pipes and utils.
+- 🔒 **Device-bound sessions** — issued JWTs are tied to a device fingerprint, so
+  a token replayed from another device is rejected.
 - ⚡ **Fast DX** — webpack HMR dev server, ESLint + Prettier, Husky +
   Commitizen (gitmoji) commit prompts.
 
@@ -86,7 +86,7 @@ pnpm run start:dev
 ```
 
 The GraphQL API is then served at **`http://<SERVER_ADDRESS>:<SERVER_PORT>/graphql`**
-(defaults to `0.0.0.0:3000`), with Prometheus metrics at **`/metrics`**.
+(defaults to `0.0.0.0:3000`).
 
 > **Prisma 7 note:** the database connection URL is no longer stored in
 > `schema.prisma`. It lives in `prisma.config.ts` (read from
