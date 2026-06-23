@@ -25,14 +25,45 @@ const contextFor = (req: unknown): ExecutionContext => {
 }
 
 describe("IsLoggedInGuard", () => {
-  const guard = new IsLoggedInGuard()
+  let guard: IsLoggedInGuard
+  const mockPrisma = { users: { findUnique: jest.fn() } }
 
-  it("allows the request when req.user is present", () => {
-    expect(guard.canActivate(contextFor({ user: { id: "1" } }))).toBe(true)
+  beforeEach(() => {
+    jest.clearAllMocks()
+    guard = new IsLoggedInGuard(mockPrisma as never)
   })
 
-  it("throws UserIsNotAuthorized when req.user is missing", () => {
-    expect(() => guard.canActivate(contextFor({}))).toThrow(AuthErrors.UserIsNotAuthorized.message)
+  it("allows the request when req.user is present and the account is active", async () => {
+    mockPrisma.users.findUnique.mockResolvedValue({ active: true })
+
+    await expect(guard.canActivate(contextFor({ user: { id: "1" } }))).resolves.toBe(true)
+    expect(mockPrisma.users.findUnique).toHaveBeenCalledWith({
+      where: { id: "1" },
+      select: { active: true },
+    })
+  })
+
+  it("throws UserIsNotAuthorized when req.user is missing", async () => {
+    await expect(guard.canActivate(contextFor({}))).rejects.toThrow(
+      AuthErrors.UserIsNotAuthorized.message,
+    )
+    expect(mockPrisma.users.findUnique).not.toHaveBeenCalled()
+  })
+
+  it("throws UserIsNotAuthorized when the user row no longer exists", async () => {
+    mockPrisma.users.findUnique.mockResolvedValue(null)
+
+    await expect(guard.canActivate(contextFor({ user: { id: "1" } }))).rejects.toThrow(
+      AuthErrors.UserIsNotAuthorized.message,
+    )
+  })
+
+  it("throws InactiveUser when the account has been deactivated", async () => {
+    mockPrisma.users.findUnique.mockResolvedValue({ active: false })
+
+    await expect(guard.canActivate(contextFor({ user: { id: "1" } }))).rejects.toThrow(
+      AuthErrors.InactiveUser.message,
+    )
   })
 })
 
@@ -45,13 +76,13 @@ describe("IsAdminGuard", () => {
     guard = new IsAdminGuard(mockPrisma as never)
   })
 
-  it("allows the request when the user is an Admin", async () => {
-    mockPrisma.users.findUnique.mockResolvedValue({ role: Role.Admin })
+  it("allows the request when the user is an active Admin", async () => {
+    mockPrisma.users.findUnique.mockResolvedValue({ role: Role.Admin, active: true })
 
     await expect(guard.canActivate(contextFor({ user: { id: "1" } }))).resolves.toBe(true)
     expect(mockPrisma.users.findUnique).toHaveBeenCalledWith({
       where: { id: "1" },
-      select: { role: true },
+      select: { role: true, active: true },
     })
   })
 
@@ -62,19 +93,27 @@ describe("IsAdminGuard", () => {
     expect(mockPrisma.users.findUnique).not.toHaveBeenCalled()
   })
 
-  it("throws AccessDenied when the user is not an Admin", async () => {
-    mockPrisma.users.findUnique.mockResolvedValue({ role: Role.Member })
+  it("throws AccessDenied when the user is an active non-Admin", async () => {
+    mockPrisma.users.findUnique.mockResolvedValue({ role: Role.Member, active: true })
 
     await expect(guard.canActivate(contextFor({ user: { id: "1" } }))).rejects.toThrow(
       AuthErrors.AccessDenied.message,
     )
   })
 
-  it("throws AccessDenied when the user row no longer exists", async () => {
+  it("throws InactiveUser when the admin account has been deactivated", async () => {
+    mockPrisma.users.findUnique.mockResolvedValue({ role: Role.Admin, active: false })
+
+    await expect(guard.canActivate(contextFor({ user: { id: "1" } }))).rejects.toThrow(
+      AuthErrors.InactiveUser.message,
+    )
+  })
+
+  it("throws InactiveUser when the user row no longer exists", async () => {
     mockPrisma.users.findUnique.mockResolvedValue(null)
 
     await expect(guard.canActivate(contextFor({ user: { id: "1" } }))).rejects.toThrow(
-      AuthErrors.AccessDenied.message,
+      AuthErrors.InactiveUser.message,
     )
   })
 })

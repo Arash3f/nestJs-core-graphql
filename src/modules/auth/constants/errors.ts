@@ -4,21 +4,21 @@ import { ModuleNames } from "@src/constants"
 export const AuthErrors = {
   UserIsNotAuthorized: {
     code: 1,
-    statusCode: HttpStatus.BAD_REQUEST,
+    statusCode: HttpStatus.UNAUTHORIZED,
     module: ModuleNames.AuthModule,
     message: "User is not authorized",
     persianTranslation: "ابتدا وارد شوید",
   },
   AccessDenied: {
     code: 2,
-    statusCode: HttpStatus.BAD_REQUEST,
+    statusCode: HttpStatus.FORBIDDEN,
     module: ModuleNames.AuthModule,
     message: "Access denied",
     persianTranslation: "دسترسی داده نشد",
   },
   InactiveUser: {
     code: 3,
-    statusCode: HttpStatus.BAD_REQUEST,
+    statusCode: HttpStatus.FORBIDDEN,
     module: ModuleNames.AuthModule,
     message: "User is inactive",
     persianTranslation: "کاربر غیر فعال است",
@@ -43,5 +43,12 @@ export const AuthErrors = {
     module: ModuleNames.AuthModule,
     message: "user refreshtoken is incorrect",
     persianTranslation: "refresh توکن اشتباه است",
+  },
+  IncorrectCurrentPassword: {
+    code: 7,
+    statusCode: HttpStatus.BAD_REQUEST,
+    module: ModuleNames.AuthModule,
+    message: "The current password is incorrect",
+    persianTranslation: "رمز عبور فعلی اشتباه است",
   },
 }

@@ -64,6 +64,7 @@ type Mutation {
   register(data: RegisterInput!): LoginOutput!
   logout: SuccessOutput!
   changePassword(data: ChangePasswordInput!, where: IdInput!): SuccessOutput!
+  changeMyPassword(data: ChangeMyPasswordInput!): SuccessOutput!
   refreshToken(data: RefreshTokenInput!): LoginOutput!
   updateMe(data: UpdateMeInput!): UserModel!
   createUser(data: CreateUserInput!): UserModel!
@@ -88,6 +89,11 @@ input ChangePasswordInput {
 
 input IdInput {
   id: String!
+}
+
+input ChangeMyPasswordInput {
+  currentPassword: String!
+  newPassword: String!
 }
 
 input RefreshTokenInput {

@@ -35,10 +35,15 @@ export class IsAdminGuard implements CanActivate {
       },
       select: {
         role: true,
+        active: true,
       },
     })
 
-    if (findUser?.role !== Role.Admin) {
+    if (!findUser?.active) {
+      throw new AppException(AuthErrors.InactiveUser)
+    }
+
+    if (findUser.role !== Role.Admin) {
       throw new AppException(AuthErrors.AccessDenied)
     }
 

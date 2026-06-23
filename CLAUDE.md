@@ -21,51 +21,60 @@ pnpm run start:build && pnpm run start:prod   # production build/run (.env.prod)
 pnpm run lint                    # eslint --fix
 pnpm run typecheck               # tsc --noEmit
 
-pnpm run test:migrate            # prisma db push against .env.test
 pnpm run api                     # regenerate Zeus GraphQL client from schema.gql (after schema changes)
-pnpm run test:e2e                # jest e2e tests (.env.test) — there are no unit tests, only e2e
-pnpm run test:cov                # e2e tests with coverage
+pnpm run test                    # jest tests (.env.test) — both unit and e2e
+pnpm run test:cov                # tests with coverage
 
 pnpm run prisma:migrate:dev      # prisma migrate dev (.env.dev)
 pnpm run prisma:push:dev         # prisma db push (.env.dev)
 ```
 
-To run a single e2e test file/case, pass jest filters through: `env-cmd -f ./.env.test jest --config jest.config.js -t "name of test"` or target the file path directly. Test files match `*.e2e.spec.ts` (see `jest.config.js`); there's currently only `src/modules/auth/auth.e2e.spec.ts`.
+There is no `test:migrate`/`test:e2e`/`doc` script — those names are not defined in `package.json`. Push the schema to the test DB directly with `env-cmd -f ./.env.test prisma db push`.
 
-Before running e2e tests, `test:migrate` must have been run against the test DB, and the Zeus client (`src/utils/graphql/zeus`) must be in sync with `schema.gql` (`pnpm run api`) — tests call the API through the generated Zeus client, not raw fetch.
+Tests live under `tests/` (not `src/`): `tests/e2e/*.e2e.spec.ts` (full-app, through the Zeus client) and `tests/unit/**/*.spec.ts` (guards, filters, pipes, utils, prisma helpers). Jest's `testRegex` is `.spec.ts$`, so `pnpm run test` runs both; target a subset by path, e.g. `env-cmd -f ./.env.test jest --config jest.config.js tests/unit`, or a case with `-t "name of test"`.
+
+Before running e2e tests: the test DB schema must be pushed, and the Zeus client (`src/utils/graphql/zeus`) must be in sync with `schema.gql` (`pnpm run api`) — tests call the API through the generated Zeus client, not raw fetch.
 
 ## Architecture
 
 ### Module shape
-Each feature lives under `src/modules/<name>/` with `*.module.ts`, `*.resolver.ts` (GraphQL-facing), `*.service.ts` (business logic), `dto/` (GraphQL input/output classes), `model/` (GraphQL object types), `constants/errors.ts` (module's typed error catalog). `auth` is currently the only feature module (users/roles); `config`, `error`, `prisma`, `init` are infra modules wired in `app.module.ts`.
+Each feature lives under `src/modules/<name>/` with `*.module.ts`, `*.resolver.ts` (GraphQL-facing), `*.service.ts` (business logic), `dto/` (GraphQL input/output classes), `model/` (GraphQL object types), `constants/errors.ts` (module's typed error catalog). Feature modules are `auth` (login/register/tokens) and `user` (user CRUD, roles); `config`, `prisma`, `init` are infra modules wired in `app.module.ts`.
 
 ### Request pipeline
-1. `TokenGuard` (`src/common/guards/token.guard.ts`) is registered **globally** in `main.ts` for every GraphQL request. It never throws — it decodes the JWT (if present) and stashes the result on `request.headers["_tokenGuard"]` as `{ user?, payload? }` or `{ tokenError }`. Always succeeds so unauthenticated queries (e.g. `logIn`) still work.
-2. Per-resolver guards (`IsLoggedIn`, `IsAdmin` in `src/common/guards/`) read `_tokenGuard` off the request and decide access. They throw via `ErrorService.throwErrorToClient` when unauthorized — see `AuthErrors.AccessDenied` / `UserIsNotAuthorized`.
-3. Resolvers extract user/request data via decorators (`@GetUserId()`, `@GetJwtToken()`, `@GetIp()` in `src/common/decorators/`), not by reaching into the raw context manually.
+1. `TokenGuard` (`src/common/guards/token.guard.ts`) is registered **globally** in `main.ts` (`app.useGlobalGuards`) for every GraphQL request. It never throws — it decodes the bearer JWT (if present), and when the token verifies **and** its `deviceId` claim matches the request's device fingerprint (`sha256(User-Agent)`, see `src/common/utils/device-fingerprint.util.ts`), it attaches `req.user = { id, username }`. A missing/invalid/device-mismatched token simply leaves `req.user` unset, so unauthenticated queries (e.g. `logIn`) still work.
+2. Per-resolver guards in `src/common/guards/` read `req.user` and decide access, throwing `AppException` on failure:
+   - `IsLoggedInGuard` — requires `req.user`, then loads the user and rejects if it no longer exists (`UserIsNotAuthorized`) or has been deactivated (`InactiveUser`).
+   - `IsAdminGuard` — additionally requires `role === Admin`, rejecting with `InactiveUser` or `AccessDenied`.
+   Both hit the DB so a deactivated account is locked out immediately, even while holding a not-yet-expired access token.
+3. Resolvers extract request data via param decorators in `src/common/decorators/` (`@GetUserId()`, `@GetJwtToken()`, `@GetIp()`, `@GetDeviceFingerprint()`), not by reaching into the raw context manually. `@GetUserId()` throws `UserIsNotAuthorized` when no user is attached, so it doubles as a "must be logged in" assertion.
 
-### Args/Input convention
-Resolvers don't use raw `@Args()`. Use the wrappers in `src/common/args/`:
-- `@DataArg(SomeInput)` → binds the GraphQL `data` argument to a DTO class.
-- `@WhereRequirementArg(SomeInput)` / `@WhereOptionalArg(SomeInput)` → binds `where` (required vs. nullable).
-- `@PaginationArg()`, `@SortByArg()` → standard pagination/sort args (see `src/common/input/pagination.input.ts`, `sort-by.input.ts`).
+### Auth specifics
+- Passwords are hashed with **argon2id** (cost params from `PASSWORD_HASH_*` env). Refresh tokens are likewise hashed (argon2) and stored on the user row; logout nulls the stored hash.
+- Issued JWTs are **device-bound**: the `deviceId` claim must match the calling device's fingerprint on both `TokenGuard` decode and `refreshToken`.
+- `register` always forces `role: Member` server-side — a visitor cannot self-register as Admin. Creating a user with an explicit role is the admin-only `createUser` mutation.
+- `changePassword` is **admin-only** and resets any user's password by id (no current-password check). `changeMyPassword` is the **self-service** path: it verifies the requester's `currentPassword` before applying the new one.
+
+### Args / DTO convention
+Resolvers use plain `@Args("data" | "where" | "pagination" | "sortBy")` bound to DTO classes (`@InputType()` with `class-validator` decorators). Shared DTOs live in `src/common/dto/` — notably `IdInput`, `SuccessOutput`, `PaginationData` (`take`/`skip`, capped at 200), and `SortByData` (`field`/`descending`). `SortByData.convertToPrismaFilter(model)` validates the requested field against the model's real columns via Prisma DMMF, raising a `400` (`PrismaErrors.InvalidSortField`) instead of letting Prisma throw a `500`.
 
 ### Error handling
-Errors are NOT thrown as plain `Error`/`HttpException` — each module defines a typed catalog in `constants/errors.ts` (e.g. `AuthErrors`) with `{ code, module, message, persianTranslation, statusCode }`. On app bootstrap, `AppModule` registers all module error catalogs into `ErrorService`'s `translationMap` via `InitService.generateProjectErrors`. Services throw with `this.error.throwErrorToClient({ errorData: AuthErrors.UserNotFound })`, which wraps the catalog entry in a `GlobalError` (HttpException). `ErrorService.errorFilter` (wired as Apollo's `formatError` in `app.module.ts`) strips internal fields (message/code/module/stack) in production (`NODE_ENV=production`) and logs full error detail in development. When adding a new error, add it to the relevant module's error catalog object — it's picked up automatically as long as the catalog is included in `generateProjectErrors()` in `app.module.ts`.
+Errors are NOT thrown as plain `Error`/`HttpException`. Each module defines a typed catalog in `constants/errors.ts` (e.g. `AuthErrors`, `UserErrors`, `PrismaErrors`) of `{ code, module, message, persianTranslation, statusCode }` entries. Code throws by reference: `throw new AppException(AuthErrors.UserNotFound)` (`src/app.exception.ts`). The global `CoreExceptionFilter` (`src/common/filters/core-exception.filter.ts`, registered in `main.ts`) normalizes any thrown value into an `ErrorResponseBody` and rethrows it as a `GraphQLError` carrying that body under `extensions.originalError`; Apollo's `formatError` (in `app.module.ts`) promotes it to the top-level `extensions`. In production (`NODE_ENV=production`) the filter strips `debugError`/`developerMessage`; in development it logs full detail. To add an error, add an entry to the relevant module's catalog object — no central registration step is needed.
+
+Prisma errors are funneled through `PrismaService.handlePrismaErrors({ error, notFoundError, duplicatedErrors, foreignKeyErrors })`, which maps P2025/P2002/P2003 to domain `AppException`s (extracting the offending field from either the driver-adapter cause or legacy `meta`) and rethrows anything else unchanged.
 
 ### Bootstrap / seeding
-`AppModule`'s constructor always registers error catalogs, and (outside of `NodeEnvType.Test`) seeds a super-admin user from env vars (`SUPER_USER_*`) via `InitService.generateSuperUserWithAdminRole`. Test mode skips auto-seeding; `auth.e2e.spec.ts` seeds its own super/member users per-test through `fetchService` (`src/utils/graphql/fetcher.ts`) for isolation.
-
-### GraphQL client (Zeus) for testing
-Tests don't hand-write GraphQL query strings. `pnpm run api` (= `scripts/zeus.ts`) regenerates a fully-typed client into `src/utils/graphql/zeus` from `schema.gql`. `src/utils/graphql/fetcher.ts` wraps a `Thunder` instance from that client (`fetchService`) with helpers (`loginAs`, `setAdminMode`, `resetDatabase`, `query`, `mutation`, etc.) used across e2e specs. **After changing any resolver/DTO/model, run `pnpm run api` to keep the Zeus client and `schema.gql` in sync before running e2e tests.**
+`InitService.onApplicationBootstrap` (`src/modules/init/`) seeds the default super-admin and member users from env vars (`SUPER_USER_*` / `MEMBER_USER_*`). It is gated by `SEED_ON_BOOT`, **skipped entirely in the Test env** (e2e specs seed their own fixtures via `src/utils/test-utils.ts` and reset the DB per test), and **create-only** — an existing account is never overwritten on reboot, so a manually changed role/active/password survives restarts. It logs a warning when seeding runs in Production (a reminder to change the sample credentials).
 
 ### Config
-All env access goes through `EnvConfigService` (`src/modules/config/env-config.service.ts`) — typed getters wrapping `ConfigService.get(...)`, never read `process.env` directly in app code. Validated at startup against `EnvConfigModel` (`class-validator`) in `ConfigModule.forRoot({ validate: ... })`; invalid config calls `process.exit(1)`.
+All env access goes through `EnvConfigService` (`src/modules/config/env-config.service.ts`) — typed getters wrapping `ConfigService.getOrThrow(...)`, never read `process.env` directly in app code. Validated at startup against `EnvConfigModel` (`class-validator`) via `ConfigModule.forRoot({ validate: validateEnv })`; invalid config logs every error and calls `process.exit(1)`. The `ToNumber`/`ToBoolean` transforms (`src/modules/config/transforms.ts`) intentionally leave empty/invalid input untouched so the validator rejects it instead of silently coercing a blank var to `0`/`false`.
 
-### Observability
-Loki logging (`nestjs-loki-logger`) and Prometheus metrics (`@willsoto/nestjs-prometheus`, exposed at `/metrics`) are wired globally in `app.module.ts`. Logger verbosity depends on `NodeEnvType` (`src/modules/config/types/config.type.ts`): verbose/debug logs and SQL query logging (in `PrismaService`) only run in `Development`.
+### GraphQL client (Zeus) for testing
+Tests don't hand-write GraphQL query strings. `schema.gql` is auto-written by the code-first `GraphQLModule` whenever the app boots (`autoSchemaFile`). `pnpm run api` (= `scripts/zeus.ts` → `scripts/zeus-generate.mjs`) then regenerates a fully-typed client into `src/utils/graphql/zeus` from that `schema.gql`. `src/utils/test-utils.ts` (`TestApiCaller`) wraps the generated client with helpers (`loginAs`, `setAdminMode`/`setMemberMode`, `resetDatabase`, `createAdminUser`, `query`, `mutation`, `extractGraphqlError`, …) used across e2e specs; `tests/e2e/helpers/e2e-app.ts` boots the full app mirroring `main.ts`. **After changing any resolver/DTO/model, boot the app once (to refresh `schema.gql`) and run `pnpm run api` to keep the Zeus client in sync before running e2e tests.**
+
+### Logging
+Logging uses the built-in Nest `Logger`; verbosity is set in `main.ts` by `NodeEnvType` (`src/modules/config/types/config.type.ts`) — full `log`/`debug`/`verbose` in `Development`, only `error`/`warn` otherwise. `PrismaService` emits SQL query logs only in `Development`. (There is no Loki/Prometheus/metrics wiring in this project.)
 
 ## Conventions worth knowing
 - Commit messages: Husky + Commitizen with `cz-customizable`/gitmoji (`pnpm run prepare` once, then `git commit` triggers the interactive prompt).
-- Indentation is 4 spaces, double quotes, no semicolons (see existing files) — match existing style; ESLint/Prettier enforce this (`eslint.config.mjs`, lint-staged runs `eslint --fix` on staged `*.ts`).
+- Indentation is 4 spaces, double quotes, no semicolons (see existing files) — match existing style; ESLint/Prettier enforce this (`eslint.config.js`, lint-staged runs `eslint --fix` on staged `*.ts`).
 - Path alias `@src/*` maps to `src/*` (see `jest.config.js` moduleNameMapper and tsconfig paths) — always import via `@src/...`, not relative paths across modules.

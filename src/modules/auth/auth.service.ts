@@ -5,6 +5,7 @@ import { AppException } from "@src/app.exception"
 import type { SuccessOutput } from "@src/common/dto/success.output"
 import { JwtPayload, Tokens } from "@src/common/types/request.type"
 import { AuthErrors } from "@src/modules/auth/constants/errors"
+import type { ChangeMyPasswordInput } from "@src/modules/auth/dto/change-my-password.input"
 import type { ChangePasswordInput } from "@src/modules/auth/dto/change-password.input"
 import type { LoginInput } from "@src/modules/auth/dto/login.input"
 import type { LoginOutput } from "@src/modules/auth/dto/login.output"
@@ -45,6 +46,7 @@ export class AuthService {
     const { password, username } = data
 
     const user = await this.verifyUserExistanceByUsername(username)
+    if (!user.active) throw new AppException(AuthErrors.InactiveUser)
     await this.verifyUserPassword(user.passwordHash, password)
     const tokens = await this.generateToken(user.username, user.id, deviceId)
     await this.storeRefreshToken(user.id, tokens.refreshToken)
@@ -129,6 +131,37 @@ export class AuthService {
   }
 
   /**
+   * Self-service password change for the logged-in user.
+   *
+   * Unlike the admin `changePassword`, this verifies the requester's current
+   * password before applying the new one, so a stolen access token alone is not
+   * enough to lock the owner out.
+   *
+   * @param userId - The requester's id (from their token).
+   * @param data - Current password (for verification) and the new password.
+   *
+   * @returns `{ success: true }` when the password is updated.
+   *
+   * @throws {AppException} UserErrors.UserNotFound
+   * @throws {AppException} AuthErrors.IncorrectCurrentPassword
+   */
+  async changeMyPassword(userId: string, data: ChangeMyPasswordInput): Promise<SuccessOutput> {
+    const user = await this.prisma.users.findUnique({ where: { id: userId } })
+    if (!user) throw new AppException(UserErrors.UserNotFound)
+
+    const valid = await argon2.verify(user.passwordHash, data.currentPassword)
+    if (!valid) throw new AppException(AuthErrors.IncorrectCurrentPassword)
+
+    const hashedPassword = await this.generatedHashedPassword(data.newPassword)
+    await this.prisma.users.update({
+      where: { id: userId },
+      data: { passwordHash: hashedPassword },
+    })
+
+    return { success: true }
+  }
+
+  /**
    * refresh user token with refreshToken and get new tokens
    *
    * @param userId - requested user
@@ -155,6 +188,7 @@ export class AuthService {
 
     const user = await this.prisma.users.findUnique({ where: { id: decodeToken.id } })
     if (!user || !user?.reFreshTokenHash) throw new AppException(AuthErrors.UserIsNotAuthorized)
+    if (!user.active) throw new AppException(AuthErrors.InactiveUser)
 
     // Device binding: the request must come from the same device the refresh token was issued to.
 

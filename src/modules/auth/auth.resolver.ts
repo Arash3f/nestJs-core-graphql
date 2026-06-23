@@ -7,6 +7,7 @@ import { SuccessOutput } from "@src/common/dto/success.output"
 import { IsAdminGuard } from "@src/common/guards/is-admin.guard"
 import { IsLoggedInGuard } from "@src/common/guards/is-logged-in.guard"
 import { AuthService } from "@src/modules/auth/auth.service"
+import { ChangeMyPasswordInput } from "@src/modules/auth/dto/change-my-password.input"
 import { ChangePasswordInput } from "@src/modules/auth/dto/change-password.input"
 import { LoginInput } from "@src/modules/auth/dto/login.input"
 import { LoginOutput } from "@src/modules/auth/dto/login.output"
@@ -53,7 +54,7 @@ export class AuthResolver {
   }
 
   /**
-   * Update a user's password.
+   * Admin-only: reset any user's password by id (no current-password check).
    *
    * @throws {@link UserErrors.UserNotFound}
    */
@@ -64,6 +65,22 @@ export class AuthResolver {
     @Args("where") where: IdInput,
   ): Promise<SuccessOutput> {
     return await this.authService.changePassword(where.id, data)
+  }
+
+  /**
+   * Self-service: lets the logged-in user change their own password after
+   * verifying their current one.
+   *
+   * @throws {@link UserErrors.UserNotFound}
+   * @throws {@link AuthErrors.IncorrectCurrentPassword}
+   */
+  @Mutation(() => SuccessOutput)
+  @UseGuards(IsLoggedInGuard)
+  async changeMyPassword(
+    @GetUserId() requesterId: string,
+    @Args("data") data: ChangeMyPasswordInput,
+  ): Promise<SuccessOutput> {
+    return await this.authService.changeMyPassword(requesterId, data)
   }
 
   /**
