@@ -7,3 +7,6 @@ dist
 .gitignore
 .husky
 scripts
+.env
+.env.*
+!.env.sample

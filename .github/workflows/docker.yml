@@ -1,0 +1,104 @@
+name: Docker
+
+on:
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - "docker/develop/**"
+      - "src/**"
+      - "prisma/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".github/workflows/docker.yml"
+  push:
+    branches: [main, develop]
+    paths:
+      - "docker/develop/**"
+      - "src/**"
+      - "prisma/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".github/workflows/docker.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: docker-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  docker:
+    name: Build & Run via Docker
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Write postgres env file
+        run: |
+          cat <<'EOF' > docker/develop/.docker.dev.env
+          POSTGRES_USER=postgres
+          POSTGRES_PASSWORD=postgres
+          POSTGRES_DB=nest_rest_core
+          PGADMIN_DEFAULT_EMAIL=admin@example.com
+          PGADMIN_DEFAULT_PASSWORD=admin
+          EOF
+
+      - name: Write app env file
+        run: |
+          cat <<'EOF' > docker/develop/.env.docker.dev
+          NODE_ENV=development
+          SERVER_ADDRESS=0.0.0.0
+          SERVER_PORT=3000
+          SWAGGER_DOCS_PATH=docs
+          SWAGGER_PATH=api_docs
+          JWT_SECRET=ciDockerDevSecretXXXXXXXXXXXXXXXXXXXXXXXXXX
+          JWT_ACCESS_EXPIRE=10000
+          JWT_REFRESH_EXPIRE=10000
+          DATABASE_CONNECTION_URL=postgres://postgres:postgres@postgres:5432/nest_rest_core
+          DATABASE_NAME=nest_rest_core
+          DATABASE_USERNAME=postgres
+          DATABASE_PASSWORD=postgres
+          DATABASE_PORT=5432
+          DATABASE_HOST=postgres
+          SEED_ON_BOOT=true
+          SUPER_USER_NAME=admin
+          SUPER_USER_USERNAME=admin
+          SUPER_USER_PASSWORD=admin
+          MEMBER_USER_NAME=member
+          MEMBER_USER_USERNAME=member
+          MEMBER_USER_PASSWORD=member
+          PASSWORD_HASH_MEMORY_COST=65536
+          PASSWORD_HASH_TIME_COST=2
+          PASSWORD_HASH_PARALLELISM=1
+          EOF
+
+      - name: Build and start containers
+        run: docker compose -f docker/develop/docker-compose-develop.yml up -d --build
+
+      - name: Wait for app to become healthy
+        run: |
+          # This is a GraphQL (Apollo) service — the only HTTP surface is the
+          # /graphql endpoint. Probe it with a trivial query rather than a
+          # Swagger/REST docs path (which does not exist here).
+          for i in $(seq 1 30); do
+            if curl -sf -X POST http://localhost:3005/graphql \
+              -H 'content-type: application/json' \
+              -d '{"query":"{ __typename }"}' > /dev/null; then
+              echo "App responded successfully"
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "App did not become healthy in time"
+          exit 1
+
+      - name: Show container logs
+        if: always()
+        run: docker compose -f docker/develop/docker-compose-develop.yml logs
+
+      - name: Tear down containers
+        if: always()
+        run: docker compose -f docker/develop/docker-compose-develop.yml down -v

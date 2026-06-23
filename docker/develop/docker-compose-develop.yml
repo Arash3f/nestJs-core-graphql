@@ -1,71 +1,32 @@
-version: '3'
-
 services:
   postgres:
-    image: postgres:latest
-    container_name: nest-graph-core-dev-postgres
+    image: postgres:15
+    container_name: nest-rest-core-dev-postgres
     ports:
       - 5435:5432
     env_file:
-    - docker.env.dev
+      - .docker.dev.env
     volumes:
-      - /data/postgres:/data/postgres
-    networks:
-      - nest-graph-core-dev
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   app:
     build:
       context: ../../
       dockerfile: docker/develop/Dockerfile.dev
-    container_name: nest-graph-core-dev-app
-    command: bash -c "pnpm run start:dev:docker"
+    container_name: nest-rest-core-dev-app
+    command: sh -c "pnpm exec prisma generate && pnpm exec prisma migrate deploy && pnpm run start:dev:docker"
     ports:
-      - '3005:3000'
+      - "3005:3000"
     depends_on:
-      - postgres
-      - prometheus
+      postgres:
+        condition: service_healthy
     env_file:
-      - '.env.docker.dev'
-    networks:
-      - nest-graph-core-dev
-
-  prometheus:
-    image: prom/prometheus
-    container_name: nest-graph-core-dev-prometheus
-    ports:
-      - "9095:9090"
-    volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml
-    networks:
-      - nest-graph-core-dev
-
-  grafana:
-    image: grafana/grafana
-    container_name: nest-graph-core-dev-grafana
-    ports:
-      - "3001:3000"
-    volumes:
-      - grafana-data:/var/lib/grafana
-      - ./grafana/provisioning:/etc/grafana/provisioning
-    networks:
-      - nest-graph-core-dev
-
-  loki:
-    container_name: nest-graph-core-dev-loki
-    image: grafana/loki
-    ports:
-    - 3100:3100
-    command: -config.file=/etc/loki/local-config.yaml
-    volumes:
-      - ./loki-config.yaml:/mnt/config/loki-config.yaml:ro
-    restart: always
-    networks:
-      - nest-graph-core-dev
-
-networks:
-  nest-graph-core-dev: 
-    driver: bridge
+      - ".env.docker.dev"
 
 volumes:
-  grafana-data:
-     
+  postgres_data:

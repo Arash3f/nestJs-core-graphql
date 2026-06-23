@@ -43,6 +43,7 @@
     "**/node_modules/**",
     "**/doc/**",
     "**/coverage/**",
-    "**/swagger/**"
+    "**/swagger/**",
+    "./src/utils/**"
   ]
 }

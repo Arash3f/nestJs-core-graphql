@@ -1,0 +1,194 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main, develop]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: 20
+  PNPM_VERSION: 10.33.0
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: nest_rest_core
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      NODE_ENV: test
+      SERVER_ADDRESS: localhost
+      SERVER_PORT: 3000
+      JWT_SECRET: mySecasdasdasdasdasdasdasdasdretTsadasc
+      JWT_ACCESS_EXPIRE: 10000
+      JWT_REFRESH_EXPIRE: 10000
+      DATABASE_CONNECTION_URL: postgres://postgres:postgres@localhost:5432/nest_rest_core
+      DATABASE_NAME: nest_rest_core
+      DATABASE_USERNAME: postgres
+      DATABASE_PASSWORD: postgres
+      DATABASE_PORT: 5432
+      DATABASE_HOST: localhost
+      SEED_ON_BOOT: true
+      SUPER_USER_NAME: admin
+      SUPER_USER_USERNAME: admin
+      SUPER_USER_PASSWORD: admin
+      MEMBER_USER_NAME: member
+      MEMBER_USER_USERNAME: member
+      MEMBER_USER_PASSWORD: member
+      PASSWORD_HASH_MEMORY_COST: 65536
+      PASSWORD_HASH_TIME_COST: 2
+      PASSWORD_HASH_PARALLELISM: 1
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          run_install: false
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm exec prisma generate
+
+      - name: Apply database migrations
+        run: pnpm exec prisma migrate deploy
+
+      - name: Write test env file
+        run: |
+          cat <<EOF > .env.test
+          NODE_ENV=${{ env.NODE_ENV }}
+          SERVER_ADDRESS=${{ env.SERVER_ADDRESS }}
+          SERVER_PORT=${{ env.SERVER_PORT }}
+          JWT_SECRET=${{ env.JWT_SECRET }}
+          JWT_ACCESS_EXPIRE=${{ env.JWT_ACCESS_EXPIRE }}
+          JWT_REFRESH_EXPIRE=${{ env.JWT_REFRESH_EXPIRE }}
+          DATABASE_CONNECTION_URL=${{ env.DATABASE_CONNECTION_URL }}
+          DATABASE_NAME=${{ env.DATABASE_NAME }}
+          DATABASE_USERNAME=${{ env.DATABASE_USERNAME }}
+          DATABASE_PASSWORD=${{ env.DATABASE_PASSWORD }}
+          DATABASE_PORT=${{ env.DATABASE_PORT }}
+          DATABASE_HOST=${{ env.DATABASE_HOST }}
+          SEED_ON_BOOT=${{ env.SEED_ON_BOOT }}
+          SUPER_USER_NAME=${{ env.SUPER_USER_NAME }}
+          SUPER_USER_USERNAME=${{ env.SUPER_USER_USERNAME }}
+          SUPER_USER_PASSWORD=${{ env.SUPER_USER_PASSWORD }}
+          MEMBER_USER_NAME=${{ env.MEMBER_USER_NAME }}
+          MEMBER_USER_USERNAME=${{ env.MEMBER_USER_USERNAME }}
+          MEMBER_USER_PASSWORD=${{ env.MEMBER_USER_PASSWORD }}
+          PASSWORD_HASH_MEMORY_COST=${{ env.PASSWORD_HASH_MEMORY_COST }}
+          PASSWORD_HASH_TIME_COST=${{ env.PASSWORD_HASH_TIME_COST }}
+          PASSWORD_HASH_PARALLELISM=${{ env.PASSWORD_HASH_PARALLELISM }}
+          EOF
+
+      - name: Boot app for smoke check
+        run: |
+          # start:dev:docker runs `nest start --webpack --watch` without env-cmd,
+          # reading the job-level env vars above directly from the environment.
+          pnpm run start:dev:docker > app.log 2>&1 &
+          # This is a GraphQL (Apollo) service — probe the /graphql endpoint with
+          # a trivial query rather than a Swagger docs path (which does not exist).
+          for i in $(seq 1 30); do
+            if curl -sf -X POST "http://${SERVER_ADDRESS}:${SERVER_PORT}/graphql" \
+              -H 'content-type: application/json' \
+              -d '{"query":"{ __typename }"}' > /dev/null; then
+              echo "App responded successfully"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "App did not become healthy in time"
+          cat app.log
+          exit 1
+
+      - name: Regenerate Zeus GraphQL client
+        run: pnpm run api
+
+      - name: Stop app
+        if: always()
+        run: |
+          # `nest start --webpack --watch` forks several layers of child
+          # processes (webpack, ts-checker workers, the compiled dist/main
+          # app); the dist/main process is the one actually bound to
+          # SERVER_PORT, so kill by port rather than by the top-level PID.
+          fuser -k "${SERVER_PORT}/tcp" 2>/dev/null || true
+
+      - name: Run linting
+        run: pnpm run lint
+
+      - name: Run type check
+        run: pnpm run typecheck
+
+      - name: Run tests
+        run: pnpm run test
+
+      - name: Run tests with coverage
+        run: pnpm run test:cov
+
+      - name: Upload coverage reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 7
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: |
+            junit.xml
+            test-results/
+          retention-days: 7
+
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage/lcov.info
+          flags: unittests
+          name: codecov-nestjs
+          fail_ci_if_error: false

@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // Transpile each test/source file in isolation: the generated Zeus client
+    // (excluded from the app build) doesn't satisfy the project's strict type
+    // rules, and type-safety is enforced by `pnpm run typecheck` instead.
+    "isolatedModules": true,
+    "noEmit": true,
+    "rootDir": ".",
+    "noUnusedLocals": false,
+    "noUnusedParameters": false
+  },
+  "include": ["src/**/*", "tests/**/*", "scripts/**/*"],
+  "exclude": ["node_modules", "dist"]
+}
