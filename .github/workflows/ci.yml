@@ -154,15 +154,14 @@ jobs:
           # app); the dist/main process is the one actually bound to
           # SERVER_PORT, so kill by port rather than by the top-level PID.
           fuser -k "${SERVER_PORT}/tcp" 2>/dev/null || true
+          # Wait for the OS to release the port before tests try to bind it.
+          sleep 3
 
       - name: Run linting
         run: pnpm run lint
 
       - name: Run type check
         run: pnpm run typecheck
-
-      - name: Run tests
-        run: pnpm run test
 
       - name: Run tests with coverage
         run: pnpm run test:cov
