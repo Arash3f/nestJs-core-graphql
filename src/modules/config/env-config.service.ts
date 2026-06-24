@@ -2,7 +2,7 @@ import { Injectable } from "@nestjs/common"
 import { ConfigService } from "@nestjs/config"
 import { Role } from "@prisma/client"
 import { EnvConfigModel } from "@src/modules/config/model/env-config.model"
-import type { ConfigDatabaseType, EnvType } from "@src/modules/config/types/config.type"
+import type { EnvType } from "@src/modules/config/types/config.type"
 import { CreateUserInput } from "@src/modules/user/dto/create-user.input"
 
 @Injectable()
@@ -52,18 +52,6 @@ export class EnvConfigService {
   get nodeEnv(): EnvType {
     const nodeEnv: EnvType = this.configService.getOrThrow("NODE_ENV")
     return nodeEnv
-  }
-
-  get databaseConfig(): ConfigDatabaseType {
-    const dbConfig: ConfigDatabaseType = {
-      connectionUrl: this.configService.getOrThrow("DATABASE_CONNECTION_URL"),
-      name: this.configService.getOrThrow("DATABASE_NAME"),
-      username: this.configService.getOrThrow("DATABASE_USERNAME"),
-      password: this.configService.getOrThrow("DATABASE_PASSWORD"),
-      port: this.configService.getOrThrow("DATABASE_PORT"),
-      host: this.configService.getOrThrow("DATABASE_HOST"),
-    }
-    return dbConfig
   }
 
   get defaultSuperUser(): CreateUserInput {

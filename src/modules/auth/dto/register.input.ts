@@ -1,5 +1,5 @@
 import { Field, InputType } from "@nestjs/graphql"
-import { IsString } from "class-validator"
+import { IsString, MaxLength, MinLength } from "class-validator"
 
 /**
  * Public self-registration input.
@@ -19,10 +19,9 @@ export class RegisterInput {
   @IsString()
   username: string
 
-  /**
-   * ! No length limit
-   */
   @Field(() => String)
   @IsString()
+  @MinLength(8)
+  @MaxLength(128)
   password: string
 }

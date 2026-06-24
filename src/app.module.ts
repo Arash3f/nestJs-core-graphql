@@ -1,6 +1,7 @@
 import { ApolloDriver, ApolloDriverConfig } from "@nestjs/apollo"
 import { Module } from "@nestjs/common"
 import { GraphQLModule } from "@nestjs/graphql"
+import { ThrottlerModule } from "@nestjs/throttler"
 import type { ErrorResponseBody } from "@src/common/filters/core-exception.type"
 import { AuthModule } from "@src/modules/auth/auth.module"
 import { EnvConfigModule } from "@src/modules/config/env-config.module"
@@ -16,6 +17,13 @@ import type { GraphQLFormattedError } from "graphql"
     UserModule,
     EnvConfigModule,
     InitModule,
+    ThrottlerModule.forRoot([
+      {
+        name: "default",
+        ttl: 60_000,
+        limit: 10,
+      },
+    ]),
     GraphQLModule.forRoot<ApolloDriverConfig>({
       driver: ApolloDriver,
       autoSchemaFile: "schema.gql",

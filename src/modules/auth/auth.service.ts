@@ -118,7 +118,7 @@ export class AuthService {
     try {
       await this.prisma.users.update({
         where: { id: userId },
-        data: { passwordHash: hashedPassword },
+        data: { passwordHash: hashedPassword, reFreshTokenHash: null },
       })
 
       return { success: true }
@@ -155,7 +155,7 @@ export class AuthService {
     const hashedPassword = await this.generatedHashedPassword(data.newPassword)
     await this.prisma.users.update({
       where: { id: userId },
-      data: { passwordHash: hashedPassword },
+      data: { passwordHash: hashedPassword, reFreshTokenHash: null },
     })
 
     return { success: true }

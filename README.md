@@ -37,8 +37,12 @@ It ships with the plumbing most projects rewrite every time:
 - 🧪 **Typed tests** — e2e specs talk to the API through a generated
   [Zeus](https://github.com/graphql-editor/graphql-zeus) client, plus unit tests
   for guards, filters, pipes and utils.
-- 🔒 **Device-bound sessions** — issued JWTs are tied to a device fingerprint, so
-  a token replayed from another device is rejected.
+- 🔒 **Device-bound sessions** — issued JWTs carry a `deviceId` claim derived
+  from the caller's `User-Agent` (SHA-256). A token replayed from a different
+  device is silently rejected. This is a soft binding (defense-in-depth), not a
+  hardware-level guarantee.
+- 🛡 **Rate limiting** — `logIn` (5 req/min) and `register` (3 req/min) are
+  protected by `@nestjs/throttler` via a Fastify/GQL-aware guard.
 - ⚡ **Fast DX** — webpack HMR dev server, ESLint + Prettier, Husky +
   Commitizen (gitmoji) commit prompts.
 
@@ -102,12 +106,12 @@ Copy `.env.sample` and fill it in. Key groups:
 | --------------------------------- | ---------------------------------------------------- |
 | `NODE_ENV`                        | `Development` / `Production` / `Test`               |
 | `SERVER_ADDRESS`, `SERVER_PORT`   | Bind address & port (default `0.0.0.0:3000`)        |
-| `DATABASE_CONNECTION_URL`         | Full Postgres connection string                     |
+| `DATABASE_CONNECTION_URL`         | Full Postgres connection string (only URL needed)   |
 | `JWT_SECRET`                      | Secret used to sign JWTs                             |
-| `JWT_ACCESS_EXPIRE`, `JWT_REFRESH_EXPIRE` | Token lifetimes                             |
-| `SEED_ON_BOOT`                    | Seed the super-admin user on startup                |
+| `JWT_ACCESS_EXPIRE`, `JWT_REFRESH_EXPIRE` | Token lifetimes (seconds)                   |
+| `SEED_ON_BOOT`                    | Seed the super-admin user on startup (`true`/`false`) |
 | `SUPER_USER_*`                    | Default super-admin credentials seeded on boot      |
-| `MEMBER_USER_*`                   | Optional default member credentials                 |
+| `MEMBER_USER_*`                   | Default member credentials seeded on boot           |
 | `PASSWORD_HASH_*`                 | Argon2 memory/time/parallelism cost params          |
 
 All env access goes through the typed `EnvConfigService` and is validated at
@@ -131,17 +135,17 @@ docker compose -f docker/develop/docker-compose-develop.yml up --build
 ```
 src/
 ├── common/            # Shared building blocks
-│   ├── args/          # @DataArg, @WhereRequirementArg, @PaginationArg, ...
-│   ├── decorators/    # @GetUserId, @GetJwtToken, @GetIp
-│   ├── guards/        # TokenGuard (global), IsLoggedIn, IsAdmin
-│   ├── filters/       # Exception normalization
-│   └── ...
+│   ├── decorators/    # @GetUserId, @GetJwtToken, @GetIp, @GetDeviceFingerprint
+│   ├── dto/           # PaginationData, SortByData, IdInput, SuccessOutput
+│   ├── guards/        # TokenGuard (global), IsLoggedIn, IsAdmin, GqlThrottlerGuard
+│   ├── filters/       # Exception normalization (CoreExceptionFilter)
+│   └── utils/         # device-fingerprint, jwt-extract
 ├── modules/
 │   ├── auth/          # logIn, register, logout, changePassword, refreshToken
 │   ├── user/          # me, updateMe, createUser, readUsers, updateUser, deleteUser
 │   ├── config/        # EnvConfigService + validation
 │   ├── prisma/        # PrismaService (pg driver adapter)
-│   └── init/          # Error-catalog registration + super-user seeding
+│   └── init/          # Super-user seeding on boot
 ├── utils/graphql/     # Generated Zeus client + fetcher helpers (for tests)
 └── main.ts            # Bootstrap, global TokenGuard, listen
 ```
@@ -149,14 +153,16 @@ src/
 ### Request pipeline
 
 1. **`TokenGuard`** runs globally on every GraphQL request. It never throws —
-   it decodes the JWT (if present) and stashes `{ user, payload }` or
-   `{ tokenError }` on the request, so unauthenticated queries (e.g. `logIn`)
-   still work.
-2. **Per-resolver guards** (`IsLoggedIn`, `IsAdmin`) read that stashed result
-   and throw typed errors when access is denied.
-3. **Resolvers** pull user/request data via decorators (`@GetUserId()`,
-   `@GetJwtToken()`, `@GetIp()`) and bind args through the `@DataArg` /
-   `@WhereRequirementArg` / `@PaginationArg` wrappers — never raw `@Args()`.
+   it decodes the JWT (if present) and, when the token verifies and its
+   `deviceId` claim matches the caller's device fingerprint, sets `req.user`.
+   A missing or invalid token leaves `req.user` unset, so unauthenticated
+   queries (e.g. `logIn`) still work.
+2. **Per-resolver guards** (`IsLoggedIn`, `IsAdmin`) read `req.user` and throw
+   typed `AppException`s when access is denied. Both hit the DB on every call
+   so a deactivated account is locked out immediately, even with a valid token.
+3. **Resolvers** pull user/request data via param decorators (`@GetUserId()`,
+   `@GetJwtToken()`, `@GetIp()`, `@GetDeviceFingerprint()`) and bind args with
+   plain `@Args("data" | "where" | "pagination" | "sortBy")`.
 
 ## 🧪 Testing
 
