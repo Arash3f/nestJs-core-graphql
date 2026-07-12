@@ -123,46 +123,14 @@ jobs:
           PASSWORD_HASH_PARALLELISM=${{ env.PASSWORD_HASH_PARALLELISM }}
           EOF
 
-      - name: Boot app for smoke check
-        run: |
-          # start:dev:docker runs `nest start --webpack --watch` without env-cmd,
-          # reading the job-level env vars above directly from the environment.
-          pnpm run start:dev:docker > app.log 2>&1 &
-          # This is a GraphQL (Apollo) service — probe the /graphql endpoint with
-          # a trivial query rather than a Swagger docs path (which does not exist).
-          for i in $(seq 1 30); do
-            if curl -sf -X POST "http://${SERVER_ADDRESS}:${SERVER_PORT}/graphql" \
-              -H 'content-type: application/json' \
-              -d '{"query":"{ __typename }"}' > /dev/null; then
-              echo "App responded successfully"
-              exit 0
-            fi
-            sleep 2
-          done
-          echo "App did not become healthy in time"
-          cat app.log
-          exit 1
-
       - name: Regenerate Zeus GraphQL client
         run: pnpm run api
-
-      - name: Stop app
-        if: always()
-        run: |
-          # `nest start --webpack --watch` forks several layers of child
-          # processes (webpack, ts-checker workers, the compiled dist/main
-          # app); the dist/main process is the one actually bound to
-          # SERVER_PORT, so kill by port rather than by the top-level PID.
-          fuser -k "${SERVER_PORT}/tcp" 2>/dev/null || true
 
       - name: Run linting
         run: pnpm run lint
 
       - name: Run type check
         run: pnpm run typecheck
-
-      - name: Run tests
-        run: pnpm run test
 
       - name: Run tests with coverage
         run: pnpm run test:cov

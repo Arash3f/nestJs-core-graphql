@@ -27,21 +27,6 @@ export class EnvConfigModel {
   @IsString()
   SERVER_ADDRESS: string
 
-  @IsString()
-  DATABASE_NAME: string
-
-  @IsString()
-  DATABASE_USERNAME: string
-
-  @IsString()
-  DATABASE_PASSWORD: string
-
-  @IsString()
-  DATABASE_PORT: string
-
-  @IsString()
-  DATABASE_HOST: string
-
   @IsEnum(EnvType)
   NODE_ENV: EnvType
 

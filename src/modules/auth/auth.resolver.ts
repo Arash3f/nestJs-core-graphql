@@ -1,5 +1,6 @@
 import { UseGuards } from "@nestjs/common"
 import { Args, Mutation, Resolver } from "@nestjs/graphql"
+import { Throttle } from "@nestjs/throttler"
 import { GetDeviceFingerprint } from "@src/common/decorators/get-device-fingerprint.decorator"
 import { GetUserId } from "@src/common/decorators/get-user-id.decorator"
 import { IdInput } from "@src/common/dto/id.input"
@@ -26,6 +27,7 @@ export class AuthResolver {
    */
   @Mutation(() => LoginOutput)
   @UseGuards(GqlThrottlerGuard)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   async logIn(
     @Args("data") data: LoginInput,
     @GetDeviceFingerprint() deviceId: string,
@@ -40,6 +42,7 @@ export class AuthResolver {
    */
   @Mutation(() => LoginOutput)
   @UseGuards(GqlThrottlerGuard)
+  @Throttle({ default: { limit: 3, ttl: 60_000 } })
   async register(
     @Args("data") data: RegisterInput,
     @GetDeviceFingerprint() deviceId: string,

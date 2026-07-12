@@ -41,7 +41,7 @@ export class PrismaService
       : [{ emit: "stdout", level: "error" }]
 
     const pool = new Pool({
-      connectionString: env.databaseConfig.connectionUrl,
+      connectionString: env.DATABASE_CONNECTION_URL,
     })
 
     const adapter = new PrismaPg(pool)

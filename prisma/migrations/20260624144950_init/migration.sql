@@ -2,18 +2,19 @@
 CREATE TYPE "Role" AS ENUM ('Admin', 'Member');
 
 -- CreateTable
-CREATE TABLE "Users" (
+CREATE TABLE "users" (
     "id" UUID NOT NULL,
     "username" TEXT NOT NULL,
-    "password" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "active" BOOLEAN NOT NULL DEFAULT true,
     "role" "Role" NOT NULL DEFAULT 'Member',
+    "passwordHash" TEXT NOT NULL,
+    "reFreshTokenHash" TEXT,
     "createdDate" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedDate" TIMESTAMP(3) NOT NULL,
 
-    CONSTRAINT "Users_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "users_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Users_username_key" ON "Users"("username");
+CREATE UNIQUE INDEX "users_username_key" ON "users"("username");

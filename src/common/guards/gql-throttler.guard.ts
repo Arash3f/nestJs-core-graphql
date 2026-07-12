@@ -10,7 +10,8 @@ import type { FastifyReply, FastifyRequest } from "fastify"
  * @remarks
  * Nest's default {@link ThrottlerGuard} only reads the HTTP switch. GraphQL
  * operations expose the Fastify request/reply on the Apollo context, so this
- * subclass remaps them before the rate-limit check runs.
+ * subclass remaps them before the rate-limit check runs. Test traffic is
+ * skipped via {@link ThrottlerModule} `skipIf`, not here.
  */
 @Injectable()
 export class GqlThrottlerGuard extends ThrottlerGuard {
@@ -21,12 +22,12 @@ export class GqlThrottlerGuard extends ThrottlerGuard {
     if (context.getType<GqlContextType>() === "graphql") {
       const ctx = GqlExecutionContext.create(context).getContext<{
         req: FastifyRequest
-        reply: FastifyReply
+        res: FastifyReply
       }>()
 
       return {
         req: ctx.req as unknown as Record<string, unknown>,
-        res: ctx.reply as unknown as Record<string, unknown>,
+        res: ctx.res as unknown as Record<string, unknown>,
       }
     }
 
