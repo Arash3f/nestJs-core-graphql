@@ -317,6 +317,77 @@ describe("Auth", () => {
 
   /**
    * ! ------------------- !
+   * ! | ChangeMyPassword  | !
+   * ! ------------------- !
+   */
+  describe("ChangeMyPassword", () => {
+    const NEW_PASSWORD = "MyN3wP@ssw0rd"
+
+    it("+ lets a member change their own password and clears the refresh hash", async () => {
+      await api.setMemberMode()
+
+      const { changeMyPassword } = await api.mutation({
+        changeMyPassword: [
+          { data: { currentPassword: member.password, newPassword: NEW_PASSWORD } },
+          SUCCESS_SELECTION,
+        ],
+      })
+      expect(changeMyPassword.success).toBe(true)
+
+      const row = await prisma.users.findUniqueOrThrow({
+        where: { username: member.username.toLowerCase() },
+      })
+      expect(row.refreshTokenHash).toBeNull()
+
+      api.setAnonymousMode()
+      try {
+        await api.mutation({ logIn: [{ data: member }, TOKENS_SELECTION] })
+        fail("Test failed!")
+      } catch (err) {
+        expect(extractGraphqlError(err)).toMatchObject(AuthErrors.IncorrectUsernameOrPassword)
+      }
+
+      const { logIn } = await api.mutation({
+        logIn: [{ data: { username: member.username, password: NEW_PASSWORD } }, TOKENS_SELECTION],
+      })
+      expectJwt(logIn.accessToken)
+    })
+
+    it("- IncorrectCurrentPassword when the current password is wrong", async () => {
+      await api.setMemberMode()
+
+      try {
+        await api.mutation({
+          changeMyPassword: [
+            { data: { currentPassword: "definitely-wrong", newPassword: NEW_PASSWORD } },
+            SUCCESS_SELECTION,
+          ],
+        })
+        fail("Test failed!")
+      } catch (err) {
+        expect(extractGraphqlError(err)).toMatchObject(AuthErrors.IncorrectCurrentPassword)
+      }
+    })
+
+    it("- UserIsNotAuthorized for an anonymous request", async () => {
+      api.setAnonymousMode()
+
+      try {
+        await api.mutation({
+          changeMyPassword: [
+            { data: { currentPassword: member.password, newPassword: NEW_PASSWORD } },
+            SUCCESS_SELECTION,
+          ],
+        })
+        fail("Test failed!")
+      } catch (err) {
+        expect(extractGraphqlError(err)).toMatchObject(AuthErrors.UserIsNotAuthorized)
+      }
+    })
+  })
+
+  /**
+   * ! ------------------- !
    * ! | RefreshToken      | !
    * ! ------------------- !
    */
@@ -494,6 +565,18 @@ describe("Auth", () => {
       api.setAnonymousMode()
       await expectPipeValidationError(() =>
         api.mutation({ refreshToken: [{ data: { refreshToken: "notajwt" } }, TOKENS_SELECTION] }),
+      )
+    })
+
+    it("- 400 when ChangeMyPassword newPassword is too short", async () => {
+      await api.setMemberMode()
+      await expectPipeValidationError(() =>
+        api.mutation({
+          changeMyPassword: [
+            { data: { currentPassword: member.password, newPassword: "short" } },
+            SUCCESS_SELECTION,
+          ],
+        }),
       )
     })
   })

@@ -41,8 +41,12 @@ It ships with the plumbing most projects rewrite every time:
   from the caller's `User-Agent` (SHA-256). A token replayed from a different
   device is silently rejected. This is a soft binding (defense-in-depth), not a
   hardware-level guarantee.
-- 🛡 **Rate limiting** — `logIn` (5 req/min) and `register` (3 req/min) are
-  protected by `@nestjs/throttler` via a Fastify/GQL-aware guard.
+- 🛡 **Rate limiting** — `logIn` (5 req/min), `register` (3 req/min), and
+  `refreshToken` (module default from `THROTTLE_*`) are protected by
+  `@nestjs/throttler` via a Fastify/GQL-aware guard. Skipped automatically in
+  the `Test` environment.
+- ❤️ **Health probe** — plain HTTP `GET /health` for load balancers (DB
+  reachability check, not GraphQL).
 - ⚡ **Fast DX** — webpack HMR dev server, ESLint + Prettier, Husky +
   Commitizen (gitmoji) commit prompts.
 
@@ -106,6 +110,8 @@ Copy `.env.sample` and fill it in. Key groups:
 | --------------------------------- | ---------------------------------------------------- |
 | `NODE_ENV`                        | `Development` / `Production` / `Test`               |
 | `SERVER_ADDRESS`, `SERVER_PORT`   | Bind address & port (default `0.0.0.0:3000`)        |
+| `CORS_ORIGINS`                    | Comma-separated origins, or `*` for all             |
+| `THROTTLE_TTL_MS`, `THROTTLE_LIMIT` | Default throttler window (ms) and request limit   |
 | `DATABASE_CONNECTION_URL`         | Full Postgres connection string (only URL needed)   |
 | `JWT_SECRET`                      | Secret used to sign JWTs                             |
 | `JWT_ACCESS_EXPIRE`, `JWT_REFRESH_EXPIRE` | Token lifetimes (seconds)                   |
@@ -139,15 +145,16 @@ src/
 │   ├── dto/           # PaginationData, SortByData, IdInput, SuccessOutput
 │   ├── guards/        # TokenGuard (global), IsLoggedIn, IsAdmin, GqlThrottlerGuard
 │   ├── filters/       # Exception normalization (CoreExceptionFilter)
-│   └── utils/         # device-fingerprint, jwt-extract
+│   └── utils/         # device-fingerprint, jwt-extract, get-request
 ├── modules/
-│   ├── auth/          # logIn, register, logout, changePassword, refreshToken
+│   ├── auth/          # logIn, register, logout, changePassword, changeMyPassword, refreshToken
 │   ├── user/          # me, updateMe, createUser, readUsers, updateUser, deleteUser
 │   ├── config/        # EnvConfigService + validation
 │   ├── prisma/        # PrismaService (pg driver adapter)
-│   └── init/          # Super-user seeding on boot
+│   ├── health/        # GET /health liveness/readiness probe
+│   └── init/          # Super-user / member seeding on boot
 ├── utils/graphql/     # Generated Zeus client + fetcher helpers (for tests)
-└── main.ts            # Bootstrap, global TokenGuard, listen
+└── main.ts            # Bootstrap, CORS, global TokenGuard, listen
 ```
 
 ### Request pipeline
@@ -166,18 +173,22 @@ src/
 
 ## 🧪 Testing
 
-Tests are **e2e** (`*.e2e.spec.ts`) and call the API through the generated Zeus
-client, so the client and `schema.gql` must be in sync first. They run against
-the test database defined in `.env.test`.
+Tests live under `tests/` and include:
+
+- **e2e** (`tests/e2e/*.e2e.spec.ts`) — hit the real app through the generated
+  Zeus client (GraphQL) or Fastify inject (HTTP health). Require a Postgres DB
+  from `.env.test` and a Zeus client in sync with `schema.gql`.
+- **unit** (`tests/unit/**/*.spec.ts`) — guards, filters, pipes, utils, and
+  Prisma helpers; no database required beyond what individual specs mock.
 
 ```bash
 # 1. Prepare the test database (push the schema against .env.test)
-env-cmd -f ./.env.test prisma db push
+pnpm run prisma:push:test
 
 # 2. (Re)generate the typed Zeus client from schema.gql
 pnpm run api
 
-# 3. Run the e2e tests (uses .env.test)
+# 3. Run all tests (uses .env.test)
 pnpm run test
 
 # ...or with coverage
