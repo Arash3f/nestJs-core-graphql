@@ -266,7 +266,7 @@ export class TestApiCaller {
    * Seeds a single user row directly via Prisma (bypassing the GraphQL API).
    *
    * The username is lower-cased to match the login lookup
-   * (`AuthService.verifyUserExistanceByUsername`), and the password is hashed
+   * (`AuthService.verifyUserExistenceByUsername`), and the password is hashed
    * with {@link TestApiCaller.hashPassword} so the seeded user can log in.
    *
    * @param user - Name, username, password and role for the new user.

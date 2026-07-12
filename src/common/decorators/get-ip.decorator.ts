@@ -1,5 +1,5 @@
 import { createParamDecorator, type ExecutionContext } from "@nestjs/common"
-import { GqlExecutionContext } from "@nestjs/graphql"
+import { getRequest } from "@src/common/utils/get-request.util"
 import type { FastifyRequest } from "fastify"
 
 /**
@@ -89,7 +89,7 @@ function firstIpFromXForwardedFor(xff: unknown): string {
  */
 export const GetIp = createParamDecorator(
   (options: GetIpOptions | undefined, context: ExecutionContext) => {
-    const req = GqlExecutionContext.create(context).getContext<{ req: FastifyRequest }>().req
+    const req = getRequest(context) as FastifyRequest
 
     if (options?.trustProxyHeaders) {
       const cfConnectingIp = normalizeIp(req.headers["cf-connecting-ip"])

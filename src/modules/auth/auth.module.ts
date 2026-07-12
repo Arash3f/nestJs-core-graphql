@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common"
 import { JwtModule } from "@nestjs/jwt"
+import { GuardsModule } from "@src/common/guards/guards.module"
 import { AuthResolver } from "@src/modules/auth/auth.resolver"
 import { AuthService } from "@src/modules/auth/auth.service"
 import { EnvConfigModule } from "@src/modules/config/env-config.module"
@@ -11,6 +12,7 @@ import { PrismaModule } from "@src/modules/prisma/prisma.module"
   imports: [
     PrismaModule,
     EnvConfigModule,
+    GuardsModule,
     JwtModule.registerAsync({
       imports: [EnvConfigModule],
       useFactory: (apiConfigService: EnvConfigService) => ({

@@ -1,4 +1,4 @@
-import type { ModuleNames } from "@src/constants"
+import type { ModuleNames } from "@src/common/constants"
 
 /**
  * HTTP exception response body from NestJS native `HttpException`.
@@ -27,16 +27,20 @@ export type HttpExceptionResponseBody = {
 }
 
 /**
- * Normalized error shape placed under `extensions.originalError` on the
- * `GraphQLError` thrown by {@link CoreExceptionFilter}.
+ * Standardized error response body format for the application.
  *
  * @remarks
- * Read back out by `ErrorService.errorFilter` (wired as Apollo's `formatError`)
- * to build the final response sent to the client, with field stripping in production.
- * There is no `path` field here (unlike the REST equivalent) — GraphQL errors carry
- * their own `path` (the resolved field path), set by Apollo itself, not by application code.
+ * For GraphQL, this shape is placed under `extensions.originalError` on the
+ * `GraphQLError` thrown by {@link CoreExceptionFilter} (Apollo's own `path` is
+ * used for the field path). For plain HTTP routes (e.g. health), the same body
+ * is sent as the JSON response and includes `path`.
  */
 export type ErrorResponseBody = {
+  /**
+   * Request path that caused the error (HTTP routes only).
+   */
+  path?: string
+
   /**
    * Custom error code (module-specific)
    */

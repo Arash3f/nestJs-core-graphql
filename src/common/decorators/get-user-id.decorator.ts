@@ -1,7 +1,6 @@
 import { createParamDecorator, type ExecutionContext } from "@nestjs/common"
-import { GqlExecutionContext } from "@nestjs/graphql"
 import { AppException } from "@src/app.exception"
-import type { AuthenticatedRequest } from "@src/common/types/request.type"
+import { getRequest } from "@src/common/utils/get-request.util"
 import { AuthErrors } from "@src/modules/auth/constants/errors"
 
 /**
@@ -23,7 +22,7 @@ import { AuthErrors } from "@src/modules/auth/constants/errors"
  */
 export const GetUserId = createParamDecorator<unknown, string>(
   (_data: unknown, context: ExecutionContext) => {
-    const req = GqlExecutionContext.create(context).getContext<{ req: AuthenticatedRequest }>().req
+    const req = getRequest(context)
 
     const userId = req.user?.id
 

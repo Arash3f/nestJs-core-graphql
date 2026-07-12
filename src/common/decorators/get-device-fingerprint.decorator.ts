@@ -1,7 +1,6 @@
 import { createParamDecorator, type ExecutionContext } from "@nestjs/common"
-import { GqlExecutionContext } from "@nestjs/graphql"
-import type { AuthenticatedRequest } from "@src/common/types/request.type"
 import { getDeviceFingerprint } from "@src/common/utils/device-fingerprint.util"
+import { getRequest } from "@src/common/utils/get-request.util"
 
 /**
  * Param decorator that returns the calling device's fingerprint, derived from
@@ -17,12 +16,12 @@ import { getDeviceFingerprint } from "@src/common/utils/device-fingerprint.util"
  * @example
  * ```ts
  * @Mutation(() => LoginOutput)
- * logIn(@DataArg(LoginInput) data: LoginInput, @GetDeviceFingerprint() deviceId: string) {}
+ * logIn(@Args("data") data: LoginInput, @GetDeviceFingerprint() deviceId: string) {}
  * ```
  */
 export const GetDeviceFingerprint = createParamDecorator<unknown, string>(
   (_data: unknown, context: ExecutionContext) => {
-    const req = GqlExecutionContext.create(context).getContext<{ req: AuthenticatedRequest }>().req
+    const req = getRequest(context)
     return getDeviceFingerprint(req)
   },
 )

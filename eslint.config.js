@@ -27,9 +27,6 @@ module.exports = tseslint.config(
     languageOptions: {
       parser: tseslint.parser,
       parserOptions: {
-        // tsconfig.json excludes src/utils/**; tsconfig.spec.json re-includes it
-        // (plus tests) so hand-written helpers like src/utils/test-utils.ts can
-        // still be type-aware linted. The generated Zeus client stays ignored above.
         project: [
           resolve(process.cwd(), "./tsconfig.json"),
           resolve(process.cwd(), "./tsconfig.spec.json"),

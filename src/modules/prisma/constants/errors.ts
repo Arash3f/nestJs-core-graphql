@@ -1,5 +1,5 @@
 import { HttpStatus } from "@nestjs/common"
-import { ModuleNames } from "@src/constants"
+import { ModuleNames } from "@src/common/constants"
 
 export const PrismaErrors = {
   FieldIsDuplicated: {

@@ -1,16 +1,16 @@
 import type { ExecutionContext } from "@nestjs/common"
 import { JwtService } from "@nestjs/jwt"
 import { Role } from "@prisma/client"
-import { AuthErrors } from "@src/modules/auth/constants/errors"
 import { IsAdminGuard } from "@src/common/guards/is-admin.guard"
 import { IsLoggedInGuard } from "@src/common/guards/is-logged-in.guard"
 import { TokenGuard } from "@src/common/guards/token.guard"
 import { getDeviceFingerprint } from "@src/common/utils/device-fingerprint.util"
+import { AuthErrors } from "@src/modules/auth/constants/errors"
 
 /**
  * Builds a minimal GraphQL ExecutionContext that exposes the given request.
  *
- * The guards read the request via `GqlExecutionContext.create(ctx).getContext().req`,
+ * The guards read the request via `getRequest()` → `GqlExecutionContext`,
  * so the mock mimics the resolver-args shape `[root, args, { req }, info]` that
  * `GqlExecutionContext` reads (the request lives at arg index 2, `getContext()`).
  */
@@ -58,11 +58,11 @@ describe("IsLoggedInGuard", () => {
     )
   })
 
-  it("throws InactiveUser when the account has been deactivated", async () => {
+  it("throws UserIsNotAuthorized when the account has been deactivated", async () => {
     mockPrisma.users.findUnique.mockResolvedValue({ active: false })
 
     await expect(guard.canActivate(contextFor({ user: { id: "1" } }))).rejects.toThrow(
-      AuthErrors.InactiveUser.message,
+      AuthErrors.UserIsNotAuthorized.message,
     )
   })
 })
@@ -101,19 +101,19 @@ describe("IsAdminGuard", () => {
     )
   })
 
-  it("throws InactiveUser when the admin account has been deactivated", async () => {
+  it("throws AccessDenied when the admin account has been deactivated", async () => {
     mockPrisma.users.findUnique.mockResolvedValue({ role: Role.Admin, active: false })
 
     await expect(guard.canActivate(contextFor({ user: { id: "1" } }))).rejects.toThrow(
-      AuthErrors.InactiveUser.message,
+      AuthErrors.AccessDenied.message,
     )
   })
 
-  it("throws InactiveUser when the user row no longer exists", async () => {
+  it("throws AccessDenied when the user row no longer exists", async () => {
     mockPrisma.users.findUnique.mockResolvedValue(null)
 
     await expect(guard.canActivate(contextFor({ user: { id: "1" } }))).rejects.toThrow(
-      AuthErrors.InactiveUser.message,
+      AuthErrors.AccessDenied.message,
     )
   })
 })
@@ -141,12 +141,12 @@ describe("TokenGuard", () => {
     expect(mockJwt.verify).not.toHaveBeenCalled()
   })
 
-  it("attaches req.user for a valid token without a device claim", () => {
+  it("leaves req.user unset for a valid token without a device claim", () => {
     const req = requestWith("tok")
     mockJwt.verify.mockReturnValue({ id: "1", username: "u" })
 
     expect(guard.canActivate(contextFor(req))).toBe(true)
-    expect((req as Record<string, unknown>).user).toEqual({ id: "1", username: "u" })
+    expect((req as Record<string, unknown>).user).toBeUndefined()
   })
 
   it("attaches req.user when the device fingerprint matches the token claim", () => {

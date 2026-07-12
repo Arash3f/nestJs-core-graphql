@@ -123,7 +123,7 @@ export class UserService {
     const count = await this.prisma.users.count({ where: whereClause })
     const data = await this.prisma.users.findMany({
       where: whereClause,
-      ...input.sortBy?.convertToPrismaFilter(),
+      ...input.sortBy?.convertToPrismaFilter(Prisma.ModelName.Users),
       ...input.pagination?.convertToPrismaFilter(),
       select: userSelect,
     })
@@ -221,7 +221,7 @@ export class UserService {
     try {
       await this.prisma.users.update({
         where: { id },
-        data: { active: false },
+        data: { active: false, refreshTokenHash: null },
       })
 
       return { success: true }
@@ -262,7 +262,7 @@ export class UserService {
    * @returns User Object or throw Error
    * @throws {AppException} UserErrors.UserNotFound - When user not found
    */
-  async verifyUserExistanceByUserId(userId: string): Promise<Users> {
+  async verifyUserExistenceByUserId(userId: string): Promise<Users> {
     const user = await this.prisma.users.findUnique({ where: { id: userId } })
 
     if (!user) throw new AppException(UserErrors.UserNotFound)

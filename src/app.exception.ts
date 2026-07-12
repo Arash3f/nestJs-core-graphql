@@ -1,4 +1,4 @@
-import type { ModuleNames } from "src/constants"
+import type { ModuleNames } from "@src/common/constants"
 
 /**
  * Plain-object description of a domain error.

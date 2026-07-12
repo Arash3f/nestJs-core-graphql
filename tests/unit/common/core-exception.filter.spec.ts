@@ -1,23 +1,30 @@
 import type { ArgumentsHost } from "@nestjs/common"
 import { BadRequestException, HttpStatus, Logger, NotFoundException } from "@nestjs/common"
 import { AppException } from "@src/app.exception"
+import { ModuleNames } from "@src/common/constants"
 import { CoreExceptionFilter } from "@src/common/filters/core-exception.filter"
-import { ModuleNames } from "@src/constants"
 import { EnvType } from "@src/modules/config/types/config.type"
 import { UserErrors } from "@src/modules/user/constants/errors"
 import { GraphQLError } from "graphql"
 
 /**
+ * Minimal GraphQL ArgumentsHost stub — the filter branches on `getType()`.
+ */
+const gqlHost = {
+  getType: () => "graphql",
+} as unknown as ArgumentsHost
+
+/**
  * Runs the filter and returns the normalized error body it stows under
  * `extensions.originalError`.
  *
- * Unlike a REST filter, `CoreExceptionFilter` never writes to an HTTP response —
- * Apollo owns the GraphQL response — so it always rethrows a `GraphQLError`. The
- * `host` argument is unused by the filter, so a bare stub is enough.
+ * Unlike a REST filter, for GraphQL contexts `CoreExceptionFilter` never writes
+ * to an HTTP response — Apollo owns the GraphQL response — so it always rethrows
+ * a `GraphQLError`.
  */
 const caughtBody = (filter: CoreExceptionFilter, exception: unknown) => {
   try {
-    filter.catch(exception, {} as ArgumentsHost)
+    filter.catch(exception, gqlHost)
   } catch (err) {
     if (err instanceof GraphQLError) {
       return err.extensions.originalError as Record<string, unknown>
@@ -86,7 +93,7 @@ describe("CoreExceptionFilter", () => {
 
     expect(body.statusCode).toBe(HttpStatus.INTERNAL_SERVER_ERROR)
     expect(body.message).toBe("Internal server error")
-    expect(body.module).toBe(ModuleNames.ErrorModule)
+    expect(body.module).toBe(ModuleNames.AppModule)
   })
 
   it("strips developerMessage and debugError in production", () => {
@@ -97,5 +104,11 @@ describe("CoreExceptionFilter", () => {
 
     expect(body.developerMessage).toBeUndefined()
     expect(body.debugError).toBeUndefined()
+  })
+
+  it("replaces unhandled messages with a generic string in production", () => {
+    const body = caughtBody(filterFor(EnvType.Production), new Error("secret boom"))
+
+    expect(body.message).toBe("Internal server error")
   })
 })

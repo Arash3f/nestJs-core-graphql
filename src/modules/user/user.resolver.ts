@@ -63,7 +63,7 @@ export class UserResolver {
    * Takes the information for search and sends the found items
    */
   @Query(() => ReadUserOutput)
-  @UseGuards(IsLoggedInGuard)
+  @UseGuards(IsAdminGuard)
   async readUsers(
     @Args("where", { nullable: true }) where: ReadUserWhereInput,
     @Args("pagination", { nullable: true }) pagination: PaginationData,

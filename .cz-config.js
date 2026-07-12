@@ -13,8 +13,8 @@ module.exports = {
       name: "📝 docs:\tAdd or update documentation",
     },
     {
-      value: ":hammer: ref",
-      name: "🔨 ref:\tRefactoring code",
+      value: ":hammer: refactor",
+      name: "🔨 refactor:\tRefactoring code",
     },
     {
       value: ":fire: perf",

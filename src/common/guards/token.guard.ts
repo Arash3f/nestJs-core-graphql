@@ -1,9 +1,9 @@
 import type { CanActivate, ExecutionContext } from "@nestjs/common"
 import { Injectable } from "@nestjs/common"
-import { GqlExecutionContext } from "@nestjs/graphql"
 import { JwtService } from "@nestjs/jwt"
-import { AuthenticatedRequest, JwtPayload, RequestUser } from "@src/common/types/request.type"
+import { JwtPayload, RequestUser } from "@src/common/types/request.type"
 import { getDeviceFingerprint } from "@src/common/utils/device-fingerprint.util"
+import { getRequest } from "@src/common/utils/get-request.util"
 import { getJwtFromRequest } from "@src/common/utils/jwt-extract.util"
 
 @Injectable()
@@ -24,7 +24,7 @@ export class TokenGuard implements CanActivate {
    * @returns `true` always.
    */
   canActivate(context: ExecutionContext): boolean {
-    const req = GqlExecutionContext.create(context).getContext<{ req: AuthenticatedRequest }>().req
+    const req = getRequest(context)
 
     const token = getJwtFromRequest(req)
     if (!token) return true
@@ -32,9 +32,9 @@ export class TokenGuard implements CanActivate {
     try {
       const payload = this.jwtService.verify<JwtPayload>(token)
 
-      // Bind the token to its issuing device: a token replayed from a different
-      // device has a mismatching fingerprint and is treated as unauthenticated.
-      if (payload.deviceId && payload.deviceId !== getDeviceFingerprint(req)) {
+      // Bind the token to its issuing device: tokens without a device claim or
+      // replayed from a different device are treated as unauthenticated.
+      if (!payload.deviceId || payload.deviceId !== getDeviceFingerprint(req)) {
         return true
       }
 

@@ -75,12 +75,18 @@ export class InitService implements OnApplicationBootstrap {
       parallelism: this.envConf.parallelism,
     })
 
-    const createFields = { name, username, role, active: true, passwordHash }
+    const createFields = {
+      name,
+      username: username.toLowerCase(),
+      role,
+      active: true,
+      passwordHash,
+    }
 
     // Create-only: never overwrite an existing account on reboot, so a manually
     // changed role/active/password is preserved.
     await this.prisma.users.upsert({
-      where: { username },
+      where: { username: username.toLowerCase() },
       update: {},
       create: createFields,
     })

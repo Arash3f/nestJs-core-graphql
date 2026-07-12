@@ -3,6 +3,9 @@ import { EnvType } from "@src/modules/config/types/config.type"
 import { IsBoolean, IsEnum, IsNumber, IsString } from "class-validator"
 
 export class EnvConfigModel {
+  @IsString()
+  CORS_ORIGINS: string
+
   @IsNumber()
   @ToNumber()
   SERVER_PORT: number
@@ -75,4 +78,12 @@ export class EnvConfigModel {
   @IsNumber()
   @ToNumber()
   PASSWORD_HASH_PARALLELISM: number
+
+  @IsNumber()
+  @ToNumber()
+  THROTTLE_TTL_MS: number
+
+  @IsNumber()
+  @ToNumber()
+  THROTTLE_LIMIT: number
 }

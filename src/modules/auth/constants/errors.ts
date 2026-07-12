@@ -1,5 +1,5 @@
 import { HttpStatus } from "@nestjs/common"
-import { ModuleNames } from "@src/constants"
+import { ModuleNames } from "@src/common/constants"
 
 export const AuthErrors = {
   UserIsNotAuthorized: {
@@ -11,14 +11,14 @@ export const AuthErrors = {
   },
   AccessDenied: {
     code: 2,
-    statusCode: HttpStatus.FORBIDDEN,
+    statusCode: HttpStatus.UNAUTHORIZED,
     module: ModuleNames.AuthModule,
     message: "Access denied",
     persianTranslation: "دسترسی داده نشد",
   },
   InactiveUser: {
     code: 3,
-    statusCode: HttpStatus.FORBIDDEN,
+    statusCode: HttpStatus.BAD_REQUEST,
     module: ModuleNames.AuthModule,
     message: "User is inactive",
     persianTranslation: "کاربر غیر فعال است",

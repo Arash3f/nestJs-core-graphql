@@ -13,7 +13,7 @@ model Users {
   active           Boolean @default(true)
   role             Role    @default(Member)
   passwordHash     String
-  reFreshTokenHash String?
+  refreshTokenHash String?
 
   createdDate DateTime @default(now())
   updatedDate DateTime @updatedAt

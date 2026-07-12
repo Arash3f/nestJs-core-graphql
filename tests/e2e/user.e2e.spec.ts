@@ -3,14 +3,13 @@ import { AuthErrors } from "@src/modules/auth/constants/errors"
 import { EnvConfigService } from "@src/modules/config/env-config.service"
 import { PrismaService } from "@src/modules/prisma/prisma.service"
 import { UserErrors } from "@src/modules/user/constants/errors"
+import { createE2eApp } from "./helpers/e2e-app"
 import {
   extractGraphqlError,
   SUCCESS_SELECTION,
   TestApiCaller,
   USER_SELECTION,
-} from "@src/utils/test-utils"
-
-import { createE2eApp } from "./helpers/e2e-app"
+} from "./helpers/test-utils"
 
 /**
  * Local stand-in for the Jest global `fail`, which jest-circus (the default
@@ -233,11 +232,15 @@ describe("User", () => {
       expect(readUsers.data.length).toBe(2)
     })
 
-    it("+ is readable by a non-admin member", async () => {
+    it("- AccessDenied for a non-admin member", async () => {
       await api.setMemberMode()
 
-      const { readUsers } = await api.query({ readUsers: [{}, READ_USERS_SELECTION] })
-      expect(readUsers.count).toBe(2)
+      try {
+        await api.query({ readUsers: [{}, READ_USERS_SELECTION] })
+        fail("Test failed!")
+      } catch (err) {
+        expect(extractGraphqlError(err)).toMatchObject(AuthErrors.AccessDenied)
+      }
     })
 
     it("+ filters by username (case-insensitive contains)", async () => {
@@ -473,7 +476,7 @@ describe("User", () => {
         expect(extractGraphqlError(err)).toMatchObject({
           statusCode: 400,
           code: 9999,
-          module: "ErrorModule",
+          module: "AppModule",
         })
       }
     }

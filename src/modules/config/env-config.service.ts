@@ -13,6 +13,25 @@ export class EnvConfigService {
     return this.configService.getOrThrow("DATABASE_CONNECTION_URL")
   }
 
+  /**
+   * Comma-separated list of allowed CORS origins. Use `*` to allow all origins.
+   */
+  get corsOrigins(): string[] {
+    const raw: string = this.configService.getOrThrow("CORS_ORIGINS")
+    return raw
+      .split(",")
+      .map((origin) => origin.trim())
+      .filter((origin) => origin.length > 0)
+  }
+
+  get throttleTtlMs(): number {
+    return this.configService.getOrThrow("THROTTLE_TTL_MS")
+  }
+
+  get throttleLimit(): number {
+    return this.configService.getOrThrow("THROTTLE_LIMIT")
+  }
+
   get serverPort(): number {
     return this.configService.getOrThrow("SERVER_PORT")
   }

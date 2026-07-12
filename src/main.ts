@@ -44,7 +44,7 @@ async function bootstrap() {
 
   setupGlobalValidation(app, configService)
   setupGlobalGuard(app)
-  setupCors(app)
+  setupCors(app, configService)
   setupLogger(app, configService)
 
   await app.listen(configService.serverPort, configService.serverAddress)
@@ -82,9 +82,17 @@ function setupLogger(app: NestFastifyApplication, configService: EnvConfigServic
  * Enables Cross-Origin Resource Sharing (CORS).
  *
  * @param app - NestJS application instance.
+ * @param configService - Configuration provider.
  */
-function setupCors(app: NestFastifyApplication) {
-  app.enableCors()
+function setupCors(app: NestFastifyApplication, configService: EnvConfigService) {
+  const origins = configService.corsOrigins
+
+  if (origins.length === 1 && origins[0] === "*") {
+    app.enableCors()
+    return
+  }
+
+  app.enableCors({ origin: origins, credentials: true })
 }
 
 /**
@@ -116,7 +124,7 @@ function setupGlobalValidation(app: NestFastifyApplication, configService: EnvCo
  * across the entire application. Currently, it registers the `TokenGuard`
  * to handle JWT token validation and authentication for every incoming request.
  *
- * @param app - The NestJS Express application instance
+ * @param app - The NestJS Fastify application instance
  *
  * @see {@link TokenGuard} - The guard being registered globally
  */

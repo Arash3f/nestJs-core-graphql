@@ -1,6 +1,7 @@
 import { Field, InputType } from "@nestjs/graphql"
 import { Role } from "@prisma/client"
-import { IsEnum, IsString } from "class-validator"
+import { PASSWORD_MIN_LENGTH } from "@src/common/constants/password"
+import { IsEnum, IsString, MinLength } from "class-validator"
 
 @InputType()
 export class CreateUserInput {
@@ -12,11 +13,9 @@ export class CreateUserInput {
   @IsString()
   username: string
 
-  /**
-   * ! No length limit
-   */
   @Field(() => String)
   @IsString()
+  @MinLength(PASSWORD_MIN_LENGTH)
   password: string
 
   @Field(() => Role)

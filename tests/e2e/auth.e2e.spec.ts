@@ -3,14 +3,13 @@ import { AuthErrors } from "@src/modules/auth/constants/errors"
 import { EnvConfigService } from "@src/modules/config/env-config.service"
 import { PrismaService } from "@src/modules/prisma/prisma.service"
 import { UserErrors } from "@src/modules/user/constants/errors"
+import { createE2eApp } from "./helpers/e2e-app"
 import {
   extractGraphqlError,
   SUCCESS_SELECTION,
   TestApiCaller,
   TOKENS_SELECTION,
-} from "@src/utils/test-utils"
-
-import { createE2eApp } from "./helpers/e2e-app"
+} from "./helpers/test-utils"
 
 /**
  * Local stand-in for the Jest global `fail`, which jest-circus (the default
@@ -114,7 +113,7 @@ describe("Auth", () => {
       const row = await prisma.users.findUniqueOrThrow({
         where: { username: member.username.toLowerCase() },
       })
-      expect(row.reFreshTokenHash).not.toBeNull()
+      expect(row.refreshTokenHash).not.toBeNull()
     })
 
     it("- IncorrectUsernameOrPassword for a wrong password", async () => {
@@ -211,7 +210,7 @@ describe("Auth", () => {
       const row = await prisma.users.findUniqueOrThrow({
         where: { username: member.username.toLowerCase() },
       })
-      expect(row.reFreshTokenHash).toBeNull()
+      expect(row.refreshTokenHash).toBeNull()
     })
 
     it("- UserIsNotAuthorized for an anonymous request", async () => {
@@ -414,7 +413,7 @@ describe("Auth", () => {
    * - **ValidationPipe layer** — a value that is well-typed for the schema but
    *   violates a `class-validator` rule (`@IsUUID`, `@IsJWT`, `@Max`) reaches
    *   the pipe, which throws a `400` the `CoreExceptionFilter` normalizes to
-   *   `code: 9999`, `module: "ErrorModule"` ({@link expectPipeValidationError}).
+   *   `code: 9999`, `module: "AppModule"` ({@link expectPipeValidationError}).
    *
    * The intentionally malformed inputs are cast to `never` so the typed Zeus
    * client accepts them; Zeus still serializes them and the server rejects them.
@@ -438,7 +437,7 @@ describe("Auth", () => {
 
     /**
      * Asserts a request is rejected by the Nest `ValidationPipe`: a `400`
-     * normalized to the filter defaults (`code: 9999`, `module: "ErrorModule"`).
+     * normalized to the filter defaults (`code: 9999`, `module: "AppModule"`).
      *
      * @param request - A thunk performing the (expected-to-fail) request.
      */
@@ -450,7 +449,7 @@ describe("Auth", () => {
         expect(extractGraphqlError(err)).toMatchObject({
           statusCode: 400,
           code: 9999,
-          module: "ErrorModule",
+          module: "AppModule",
         })
       }
     }

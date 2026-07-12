@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common"
 import { JwtService } from "@nestjs/jwt"
 import { Prisma, Role, Users } from "@prisma/client"
 import { AppException } from "@src/app.exception"
+import type { IdInput } from "@src/common/dto/id.input"
 import type { SuccessOutput } from "@src/common/dto/success.output"
 import { JwtPayload, Tokens } from "@src/common/types/request.type"
 import { AuthErrors } from "@src/modules/auth/constants/errors"
@@ -41,11 +42,12 @@ export class AuthService {
    * @returns User's jwt Token
    *
    * @throws {AppException} AuthErrors.IncorrectUsernameOrPassword
+   * @throws {AppException} AuthErrors.InactiveUser - When the account has been deactivated/soft-deleted.
    */
   async logIn(data: LoginInput, deviceId: string): Promise<LoginOutput> {
     const { password, username } = data
 
-    const user = await this.verifyUserExistanceByUsername(username)
+    const user = await this.verifyUserExistenceByUsername(username)
     if (!user.active) throw new AppException(AuthErrors.InactiveUser)
     await this.verifyUserPassword(user.passwordHash, password)
     const tokens = await this.generateToken(user.username, user.id, deviceId)
@@ -103,22 +105,27 @@ export class AuthService {
   }
 
   /**
-   * Take the target user's id and update their password
+   * Admin-only: set a new password for the user identified by `where.id`.
    *
-   * @param userId - Target user's id
-   * @param data - Necessary data for update user's password
+   * The target is taken from the mutation args (this is an admin endpoint guarded by
+   * `IsAdminGuard`), not from the caller's token. A non-existent target surfaces as
+   * `UserErrors.UserNotFound` via {@link PrismaService.handlePrismaErrors} (Prisma `P2025`).
+   * Clearing `refreshTokenHash` invalidates any existing sessions for that user.
    *
-   * @returns True value or throw Error
+   * @param where - Target user id.
+   * @param data - The new password.
    *
-   * @throws {AppException} UserErrors.UserNotFound
+   * @returns `{ success: true }` once the password has been updated.
+   *
+   * @throws {AppException} UserErrors.UserNotFound - When no user matches `where.id`.
    */
-  async changePassword(userId: string, data: ChangePasswordInput): Promise<SuccessOutput> {
+  async changePassword(where: IdInput, data: ChangePasswordInput): Promise<SuccessOutput> {
     const hashedPassword = await this.generatedHashedPassword(data.newPassword)
 
     try {
       await this.prisma.users.update({
-        where: { id: userId },
-        data: { passwordHash: hashedPassword },
+        where: { id: where.id },
+        data: { passwordHash: hashedPassword, refreshTokenHash: null },
       })
 
       return { success: true }
@@ -135,7 +142,7 @@ export class AuthService {
    *
    * Unlike the admin `changePassword`, this verifies the requester's current
    * password before applying the new one, so a stolen access token alone is not
-   * enough to lock the owner out.
+   * enough to lock the owner out. Clearing `refreshTokenHash` forces a re-login.
    *
    * @param userId - The requester's id (from their token).
    * @param data - Current password (for verification) and the new password.
@@ -155,7 +162,7 @@ export class AuthService {
     const hashedPassword = await this.generatedHashedPassword(data.newPassword)
     await this.prisma.users.update({
       where: { id: userId },
-      data: { passwordHash: hashedPassword },
+      data: { passwordHash: hashedPassword, refreshTokenHash: null },
     })
 
     return { success: true }
@@ -164,7 +171,6 @@ export class AuthService {
   /**
    * refresh user token with refreshToken and get new tokens
    *
-   * @param userId - requested user
    * @param input - Necessary data for update user's token
    * @param deviceId - Fingerprint of the calling device; must match the device the session was bound to.
    *
@@ -175,9 +181,11 @@ export class AuthService {
    * @throws {AppException} AuthErrors.InValidRefreshToken
    */
   async refreshToken(input: RefreshTokenInput, deviceId: string): Promise<LoginOutput> {
+    // `verify` (not `decode`) so an expired or tampered refresh token is rejected
+    // here at the JWT layer instead of slipping through to the hash comparison below.
     let decodeToken: JwtPayload
     try {
-      decodeToken = await this.jwt.verifyAsync<JwtPayload>(input.refreshToken)
+      decodeToken = this.jwt.verify<JwtPayload>(input.refreshToken)
     } catch {
       throw new AppException(AuthErrors.InValidRefreshToken)
     }
@@ -187,12 +195,13 @@ export class AuthService {
     }
 
     const user = await this.prisma.users.findUnique({ where: { id: decodeToken.id } })
-    if (!user || !user?.reFreshTokenHash) throw new AppException(AuthErrors.UserIsNotAuthorized)
-    if (!user.active) throw new AppException(AuthErrors.InactiveUser)
+    if (!user || !user.active || !user.refreshTokenHash) {
+      throw new AppException(AuthErrors.UserIsNotAuthorized)
+    }
 
     // Device binding: the request must come from the same device the refresh token was issued to.
 
-    const isValid = await this.validateRefreshToken(user.reFreshTokenHash, input.refreshToken)
+    const isValid = await this.validateRefreshToken(user.refreshTokenHash, input.refreshToken)
     if (!isValid) {
       throw new AppException(AuthErrors.InValidRefreshToken)
     }
@@ -269,7 +278,7 @@ export class AuthService {
    *
    * @throws {AppException} AuthErrors.IncorrectUsernameOrPassword
    */
-  async verifyUserExistanceByUsername(username: string): Promise<Users> {
+  async verifyUserExistenceByUsername(username: string): Promise<Users> {
     const user = await this.prisma.users.findUnique({
       where: {
         username: username.toLowerCase(),
@@ -291,23 +300,23 @@ export class AuthService {
   private async removeRefreshToken(userId: string): Promise<void> {
     await this.prisma.users.update({
       where: { id: userId },
-      data: { reFreshTokenHash: null },
+      data: { refreshTokenHash: null },
     })
   }
 
   /**
    * Verify Refresh token
    *
-   * @param reFreshTokenHash database refresh token
+   * @param refreshTokenHash database refresh token
    * @param refreshToken requested refresh token
    *
    * @returns result of operation
    */
   private async validateRefreshToken(
-    reFreshTokenHash: string,
+    refreshTokenHash: string,
     refreshToken: string,
   ): Promise<boolean> {
-    const valid = await argon2.verify(reFreshTokenHash, refreshToken)
+    const valid = await argon2.verify(refreshTokenHash, refreshToken)
     return valid
   }
 
@@ -323,7 +332,7 @@ export class AuthService {
     const hashedToken = await this.generatedHashedPassword(refreshToken)
     await this.prisma.users.update({
       where: { id: userId },
-      data: { reFreshTokenHash: hashedToken },
+      data: { refreshTokenHash: hashedToken },
     })
   }
 }

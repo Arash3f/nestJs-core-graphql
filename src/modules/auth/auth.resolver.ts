@@ -4,6 +4,7 @@ import { GetDeviceFingerprint } from "@src/common/decorators/get-device-fingerpr
 import { GetUserId } from "@src/common/decorators/get-user-id.decorator"
 import { IdInput } from "@src/common/dto/id.input"
 import { SuccessOutput } from "@src/common/dto/success.output"
+import { GqlThrottlerGuard } from "@src/common/guards/gql-throttler.guard"
 import { IsAdminGuard } from "@src/common/guards/is-admin.guard"
 import { IsLoggedInGuard } from "@src/common/guards/is-logged-in.guard"
 import { AuthService } from "@src/modules/auth/auth.service"
@@ -24,6 +25,7 @@ export class AuthResolver {
    * @throws {@link AuthErrors.IncorrectUsernameOrPassword}
    */
   @Mutation(() => LoginOutput)
+  @UseGuards(GqlThrottlerGuard)
   async logIn(
     @Args("data") data: LoginInput,
     @GetDeviceFingerprint() deviceId: string,
@@ -37,6 +39,7 @@ export class AuthResolver {
    * @throws {@link UserErrors.UsernameIsDuplicated}
    */
   @Mutation(() => LoginOutput)
+  @UseGuards(GqlThrottlerGuard)
   async register(
     @Args("data") data: RegisterInput,
     @GetDeviceFingerprint() deviceId: string,
@@ -64,7 +67,7 @@ export class AuthResolver {
     @Args("data") data: ChangePasswordInput,
     @Args("where") where: IdInput,
   ): Promise<SuccessOutput> {
-    return await this.authService.changePassword(where.id, data)
+    return await this.authService.changePassword(where, data)
   }
 
   /**
@@ -91,6 +94,7 @@ export class AuthResolver {
    * @throws {@link AuthErrors.InValidRefreshToken}
    */
   @Mutation(() => LoginOutput)
+  @UseGuards(GqlThrottlerGuard)
   async refreshToken(
     @Args("data") data: RefreshTokenInput,
     @GetDeviceFingerprint() deviceId: string,
