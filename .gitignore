@@ -66,4 +66,4 @@ docker/production/.env.docker2.prod
 docker/production/docker.env2.prod
 
 
-src/utils/graphql/
+tests/utils/graphql/

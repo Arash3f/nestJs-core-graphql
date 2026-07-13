@@ -1,9 +1,10 @@
 import type { PrismaClient } from "@prisma/client"
 import type { EnvConfigService } from "@src/modules/config/env-config.service"
 import type { CreateUserInput } from "@src/modules/user/dto/create-user.input"
-import type { GraphQLResponse } from "@src/utils/graphql/zeus"
-import { Chain } from "@src/utils/graphql/zeus"
 import * as argon2 from "argon2"
+
+import type { GraphQLResponse } from "../../utils/graphql/zeus"
+import { Chain } from "../../utils/graphql/zeus"
 
 /**
  * Normalized error body the app surfaces to clients. The `CoreExceptionFilter`

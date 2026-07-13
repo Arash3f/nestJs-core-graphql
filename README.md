@@ -153,8 +153,10 @@ src/
 │   ├── prisma/        # PrismaService (pg driver adapter)
 │   ├── health/        # GET /health liveness/readiness probe
 │   └── init/          # Super-user / member seeding on boot
-├── utils/graphql/     # Generated Zeus client + fetcher helpers (for tests)
 └── main.ts            # Bootstrap, CORS, global TokenGuard, listen
+
+tests/
+└── utils/graphql/     # Generated Zeus client (e2e typed GraphQL client)
 ```
 
 ### Request pipeline

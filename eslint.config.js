@@ -16,7 +16,7 @@ module.exports = tseslint.config(
       "*.config.cjs",
       "**/*.spec.ts",
       "**/*.test.ts",
-      "src/utils/graphql/zeus/**",
+      "tests/utils/graphql/**",
     ],
   },
   ...tseslint.configs.recommended,

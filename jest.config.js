@@ -9,7 +9,7 @@ module.exports = {
   coverageDirectory: "./coverage",
   coverageReporters: ["html", "lcov"],
   testEnvironment: "node",
-  coveragePathIgnorePatterns: ["<rootDir>/src/utils", "<rootDir>/swagger"],
+  coveragePathIgnorePatterns: ["<rootDir>/tests/utils", "<rootDir>/swagger"],
   // `uuid` v13 ships ESM-only; let ts-jest transpile it (everything else under
   // pnpm's store stays ignored) so the CommonJS test runner can require it.
   transformIgnorePatterns: ["/node_modules/\\.pnpm/(?!uuid@)"],
