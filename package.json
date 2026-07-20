@@ -106,7 +106,11 @@
       "eslint --fix",
       "prettier --write"
     ],
-    "tests/**/*.{js,ts}": [
+    "tests/e2e/**/*.{js,ts}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "tests/unit/**/*.{js,ts}": [
       "eslint --fix",
       "prettier --write"
     ]

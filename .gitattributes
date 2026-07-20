@@ -1,0 +1,2 @@
+# Keep Zeus client LF so Windows checkouts match Linux CI regeneration.
+tests/utils/graphql/** text eol=lf

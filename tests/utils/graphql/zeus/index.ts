@@ -1,162 +1,163 @@
 /* eslint-disable */
 
-import { AllTypesProps, ReturnTypes, Ops } from "./const.js"
+import { AllTypesProps, ReturnTypes, Ops } from './const.js';
 
-export const HOST = "Specify host"
+
+export const HOST="Specify host"
+
 
 export const HEADERS = {}
 export const apiSubscription = (options: chainOptions) => (query: string) => {
   try {
-    const queryString = options[0] + "?query=" + encodeURIComponent(query)
-    const wsString = queryString.replace("http", "ws")
-    const host = (options.length > 1 && options[1]?.websocket?.[0]) || wsString
-    const webSocketOptions = options[1]?.websocket || [host]
-    const ws = new WebSocket(...webSocketOptions)
+    const queryString = options[0] + '?query=' + encodeURIComponent(query);
+    const wsString = queryString.replace('http', 'ws');
+    const host = (options.length > 1 && options[1]?.websocket?.[0]) || wsString;
+    const webSocketOptions = options[1]?.websocket || [host];
+    const ws = new WebSocket(...webSocketOptions);
     return {
       ws,
       on: (e: (args: any) => void) => {
         ws.onmessage = (event: any) => {
           if (event.data) {
-            const parsed = JSON.parse(event.data)
-            const data = parsed.data
-            return e(data)
+            const parsed = JSON.parse(event.data);
+            const data = parsed.data;
+            return e(data);
           }
-        }
+        };
       },
       off: (e: (args: any) => void) => {
-        ws.onclose = e
+        ws.onclose = e;
       },
       error: (e: (args: any) => void) => {
-        ws.onerror = e
+        ws.onerror = e;
       },
       open: (e: () => void) => {
-        ws.onopen = e
+        ws.onopen = e;
       },
-    }
+    };
   } catch {
-    throw new Error("No websockets implemented")
+    throw new Error('No websockets implemented');
   }
-}
-export const apiSubscriptionSSE =
-  (options: chainOptions) => (query: string, variables?: Record<string, unknown>) => {
-    const url = options[0]
-    const fetchOptions = options[1] || {}
+};
+export const apiSubscriptionSSE = (options: chainOptions) => (query: string, variables?: Record<string, unknown>) => {
+  const url = options[0];
+  const fetchOptions = options[1] || {};
 
-    let abortController: AbortController | null = null
-    let reader: ReadableStreamDefaultReader<Uint8Array> | null = null
-    let onCallback: ((args: unknown) => void) | null = null
-    let errorCallback: ((args: unknown) => void) | null = null
-    let openCallback: (() => void) | null = null
-    let offCallback: ((args: unknown) => void) | null = null
-    let isClosing = false // Flag to track intentional close
+  let abortController: AbortController | null = null;
+  let reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
+  let onCallback: ((args: unknown) => void) | null = null;
+  let errorCallback: ((args: unknown) => void) | null = null;
+  let openCallback: (() => void) | null = null;
+  let offCallback: ((args: unknown) => void) | null = null;
+  let isClosing = false; // Flag to track intentional close
 
-    const startStream = async () => {
-      try {
-        abortController = new AbortController()
+  const startStream = async () => {
+    try {
+      abortController = new AbortController();
 
-        const response = await fetch(url, {
-          method: "POST",
-          headers: {
-            Accept: "text/event-stream",
-            "Content-Type": "application/json",
-            "Cache-Control": "no-cache",
-            ...fetchOptions.headers,
-          },
-          body: JSON.stringify({ query, variables }),
-          signal: abortController.signal,
-          ...fetchOptions,
-        })
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          Accept: 'text/event-stream',
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache',
+          ...fetchOptions.headers,
+        },
+        body: JSON.stringify({ query, variables }),
+        signal: abortController.signal,
+        ...fetchOptions,
+      });
 
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`)
-        }
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
 
-        if (openCallback) {
-          openCallback()
-        }
+      if (openCallback) {
+        openCallback();
+      }
 
-        reader = response.body?.getReader() || null
-        if (!reader) {
-          throw new Error("No response body")
-        }
+      reader = response.body?.getReader() || null;
+      if (!reader) {
+        throw new Error('No response body');
+      }
 
-        const decoder = new TextDecoder()
-        let buffer = ""
+      const decoder = new TextDecoder();
+      let buffer = '';
 
-        while (true) {
-          const { done, value } = await reader.read()
+      while (true) {
+        const { done, value } = await reader.read();
 
-          if (done) {
-            if (offCallback) {
-              offCallback({ data: null, code: 1000, reason: "Stream completed" })
-            }
-            break
+        if (done) {
+          if (offCallback) {
+            offCallback({ data: null, code: 1000, reason: 'Stream completed' });
           }
+          break;
+        }
 
-          buffer += decoder.decode(value, { stream: true })
-          const lines = buffer.split("\n")
-          buffer = lines.pop() || ""
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
 
-          for (const line of lines) {
-            if (line.startsWith("data: ")) {
-              try {
-                const data = line.slice(6)
-                const parsed = JSON.parse(data)
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = line.slice(6);
+              const parsed = JSON.parse(data);
 
-                if (parsed.errors) {
-                  if (errorCallback) {
-                    errorCallback({ data: parsed.data, errors: parsed.errors })
-                  }
-                } else if (onCallback && parsed.data) {
-                  onCallback(parsed.data)
-                }
-              } catch {
+              if (parsed.errors) {
                 if (errorCallback) {
-                  errorCallback({ errors: ["Failed to parse SSE data"] })
+                  errorCallback({ data: parsed.data, errors: parsed.errors });
                 }
+              } else if (onCallback && parsed.data) {
+                onCallback(parsed.data);
+              }
+            } catch {
+              if (errorCallback) {
+                errorCallback({ errors: ['Failed to parse SSE data'] });
               }
             }
           }
         }
-      } catch (err: unknown) {
-        const error = err as Error
-        // Don't report errors if we're intentionally closing (AbortError) or during cleanup
-        if (error.name !== "AbortError" && !isClosing && errorCallback) {
-          errorCallback({ errors: [error.message || "Unknown error"] })
-        }
+      }
+    } catch (err: unknown) {
+      const error = err as Error;
+      // Don't report errors if we're intentionally closing (AbortError) or during cleanup
+      if (error.name !== 'AbortError' && !isClosing && errorCallback) {
+        errorCallback({ errors: [error.message || 'Unknown error'] });
       }
     }
+  };
 
-    return {
-      on: (e: (args: unknown) => void) => {
-        onCallback = e
-      },
-      off: (e: (args: unknown) => void) => {
-        offCallback = e
-      },
-      error: (e: (args: unknown) => void) => {
-        errorCallback = e
-      },
-      open: (e?: () => void) => {
-        if (e) {
-          openCallback = e
-        }
-        startStream()
-      },
-      close: () => {
-        isClosing = true // Mark as intentionally closing to suppress error callbacks
-        if (abortController) {
-          abortController.abort()
-        }
-        if (reader) {
-          // Wrap in try-catch to suppress AbortError during cleanup
-          reader.cancel().catch(() => {
-            // Ignore cancel errors - stream may already be closed
-          })
-        }
-      },
-    }
-  }
+  return {
+    on: (e: (args: unknown) => void) => {
+      onCallback = e;
+    },
+    off: (e: (args: unknown) => void) => {
+      offCallback = e;
+    },
+    error: (e: (args: unknown) => void) => {
+      errorCallback = e;
+    },
+    open: (e?: () => void) => {
+      if (e) {
+        openCallback = e;
+      }
+      startStream();
+    },
+    close: () => {
+      isClosing = true; // Mark as intentionally closing to suppress error callbacks
+      if (abortController) {
+        abortController.abort();
+      }
+      if (reader) {
+        // Wrap in try-catch to suppress AbortError during cleanup
+        reader.cancel().catch(() => {
+          // Ignore cancel errors - stream may already be closed
+        });
+      }
+    },
+  };
+};
 const handleFetchResponse = (response: Response): Promise<GraphQLResponse> => {
   if (!response.ok) {
     return new Promise((_, reject) => {
@@ -164,47 +165,47 @@ const handleFetchResponse = (response: Response): Promise<GraphQLResponse> => {
         .text()
         .then((text) => {
           try {
-            reject(JSON.parse(text))
+            reject(JSON.parse(text));
           } catch (err) {
-            reject(text)
+            reject(text);
           }
         })
-        .catch(reject)
-    })
+        .catch(reject);
+    });
   }
-  return response.json() as Promise<GraphQLResponse>
-}
+  return response.json() as Promise<GraphQLResponse>;
+};
 
 export const apiFetch =
   (options: fetchOptions) =>
   (query: string, variables: Record<string, unknown> = {}) => {
-    const fetchOptions = options[1] || {}
-    if (fetchOptions.method && fetchOptions.method === "GET") {
+    const fetchOptions = options[1] || {};
+    if (fetchOptions.method && fetchOptions.method === 'GET') {
       return fetch(`${options[0]}?query=${encodeURIComponent(query)}`, fetchOptions)
         .then(handleFetchResponse)
         .then((response: GraphQLResponse) => {
           if (response.errors) {
-            throw new GraphQLError(response)
+            throw new GraphQLError(response);
           }
-          return response.data
-        })
+          return response.data;
+        });
     }
     return fetch(`${options[0]}`, {
       body: JSON.stringify({ query, variables }),
-      method: "POST",
+      method: 'POST',
       headers: {
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
       },
       ...fetchOptions,
     })
       .then(handleFetchResponse)
       .then((response: GraphQLResponse) => {
         if (response.errors) {
-          throw new GraphQLError(response)
+          throw new GraphQLError(response);
         }
-        return response.data
-      })
-  }
+        return response.data;
+      });
+  };
 
 export const InternalsBuildQuery = ({
   ops,
@@ -213,29 +214,29 @@ export const InternalsBuildQuery = ({
   options,
   scalars,
 }: {
-  props: AllTypesPropsType
-  returns: ReturnTypesType
-  ops: Operations
-  options?: OperationOptions
-  scalars?: ScalarDefinition
+  props: AllTypesPropsType;
+  returns: ReturnTypesType;
+  ops: Operations;
+  options?: OperationOptions;
+  scalars?: ScalarDefinition;
 }) => {
   const ibb = (
     k: string,
     o: InputValueType | VType,
-    p = "",
+    p = '',
     root = true,
     vars: Array<{ name: string; graphQLType: string }> = [],
   ): string => {
-    const keyForPath = purifyGraphQLKey(k)
-    const newPath = [p, keyForPath].join(SEPARATOR)
+    const keyForPath = purifyGraphQLKey(k);
+    const newPath = [p, keyForPath].join(SEPARATOR);
     if (!o) {
-      return ""
+      return '';
     }
-    if (typeof o === "boolean" || typeof o === "number") {
-      return k
+    if (typeof o === 'boolean' || typeof o === 'number') {
+      return k;
     }
-    if (typeof o === "string") {
-      return `${k} ${o}`
+    if (typeof o === 'string') {
+      return `${k} ${o}`;
     }
     if (Array.isArray(o)) {
       const args = InternalArgsBuilt({
@@ -244,63 +245,56 @@ export const InternalsBuildQuery = ({
         ops,
         scalars,
         vars,
-      })(o[0], newPath)
-      return `${ibb(args ? `${k}(${args})` : k, o[1], p, false, vars)}`
+      })(o[0], newPath);
+      return `${ibb(args ? `${k}(${args})` : k, o[1], p, false, vars)}`;
     }
-    if (k === "__alias") {
+    if (k === '__alias') {
       return Object.entries(o)
         .map(([alias, objectUnderAlias]) => {
-          if (typeof objectUnderAlias !== "object" || Array.isArray(objectUnderAlias)) {
+          if (typeof objectUnderAlias !== 'object' || Array.isArray(objectUnderAlias)) {
             throw new Error(
-              "Invalid alias it should be __alias:{ YOUR_ALIAS_NAME: { OPERATION_NAME: { ...selectors }}}",
-            )
+              'Invalid alias it should be __alias:{ YOUR_ALIAS_NAME: { OPERATION_NAME: { ...selectors }}}',
+            );
           }
-          const operationName = Object.keys(objectUnderAlias)[0]
-          const operation = objectUnderAlias[operationName]
-          return ibb(`${alias}:${operationName}`, operation, p, false, vars)
+          const operationName = Object.keys(objectUnderAlias)[0];
+          const operation = objectUnderAlias[operationName];
+          return ibb(`${alias}:${operationName}`, operation, p, false, vars);
         })
-        .join("\n")
+        .join('\n');
     }
-    const hasOperationName = root && options?.operationName ? " " + options.operationName : ""
-    const keyForDirectives = o.__directives ?? ""
+    const hasOperationName = root && options?.operationName ? ' ' + options.operationName : '';
+    const keyForDirectives = o.__directives ?? '';
     const query = `{${Object.entries(o)
-      .filter(([k]) => k !== "__directives")
+      .filter(([k]) => k !== '__directives')
       .map((e) => ibb(...e, [p, `field<>${keyForPath}`].join(SEPARATOR), false, vars))
-      .join("\n")}}`
+      .join('\n')}}`;
     if (!root) {
-      return `${k} ${keyForDirectives}${hasOperationName} ${query}`
+      return `${k} ${keyForDirectives}${hasOperationName} ${query}`;
     }
-    const varsString = vars.map((v) => `${v.name}: ${v.graphQLType}`).join(", ")
-    return `${k} ${keyForDirectives}${hasOperationName}${varsString ? `(${varsString})` : ""} ${query}`
-  }
-  return ibb
-}
+    const varsString = vars.map((v) => `${v.name}: ${v.graphQLType}`).join(', ');
+    return `${k} ${keyForDirectives}${hasOperationName}${varsString ? `(${varsString})` : ''} ${query}`;
+  };
+  return ibb;
+};
 
-type UnionOverrideKeys<T, U> = Omit<T, keyof U> & U
+type UnionOverrideKeys<T, U> = Omit<T, keyof U> & U;
 
 export const Thunder =
-  <SCLR extends ScalarDefinition>(
-    fn: FetchFunction,
-    thunderGraphQLOptions?: ThunderGraphQLOptions<SCLR>,
-  ) =>
-  <
-    O extends keyof typeof Ops,
-    OVERRIDESCLR extends SCLR,
-    R extends keyof ValueTypes = GenericOperation<O>,
-  >(
+  <SCLR extends ScalarDefinition>(fn: FetchFunction, thunderGraphQLOptions?: ThunderGraphQLOptions<SCLR>) =>
+  <O extends keyof typeof Ops, OVERRIDESCLR extends SCLR, R extends keyof ValueTypes = GenericOperation<O>>(
     operation: O,
     graphqlOptions?: ThunderGraphQLOptions<OVERRIDESCLR>,
   ) =>
   <Z extends ValueTypes[R]>(
     o: Z & {
-      [P in keyof Z]: P extends keyof ValueTypes[R] ? Z[P] : never
+      [P in keyof Z]: P extends keyof ValueTypes[R] ? Z[P] : never;
     },
     ops?: OperationOptions & { variables?: Record<string, unknown> },
   ) => {
     const options = {
       ...thunderGraphQLOptions,
       ...graphqlOptions,
-    }
+    };
     return fn(
       Zeus(operation, o, {
         operationOptions: ops,
@@ -316,49 +310,40 @@ export const Thunder =
           returns: ReturnTypes,
           scalars: options.scalars,
           ops: Ops,
-        })
+        });
       }
-      return data
-    }) as Promise<InputType<GraphQLTypes[R], Z, UnionOverrideKeys<SCLR, OVERRIDESCLR>>>
-  }
+      return data;
+    }) as Promise<InputType<GraphQLTypes[R], Z, UnionOverrideKeys<SCLR, OVERRIDESCLR>>>;
+  };
 
-export const Chain = (...options: chainOptions) => Thunder(apiFetch(options))
+export const Chain = (...options: chainOptions) => Thunder(apiFetch(options));
 
 export const SubscriptionThunder =
-  <SCLR extends ScalarDefinition>(
-    fn: SubscriptionFunction,
-    thunderGraphQLOptions?: ThunderGraphQLOptions<SCLR>,
-  ) =>
-  <
-    O extends keyof typeof Ops,
-    OVERRIDESCLR extends SCLR,
-    R extends keyof ValueTypes = GenericOperation<O>,
-  >(
+  <SCLR extends ScalarDefinition>(fn: SubscriptionFunction, thunderGraphQLOptions?: ThunderGraphQLOptions<SCLR>) =>
+  <O extends keyof typeof Ops, OVERRIDESCLR extends SCLR, R extends keyof ValueTypes = GenericOperation<O>>(
     operation: O,
     graphqlOptions?: ThunderGraphQLOptions<OVERRIDESCLR>,
   ) =>
   <Z extends ValueTypes[R]>(
     o: Z & {
-      [P in keyof Z]: P extends keyof ValueTypes[R] ? Z[P] : never
+      [P in keyof Z]: P extends keyof ValueTypes[R] ? Z[P] : never;
     },
     ops?: OperationOptions & { variables?: Record<string, unknown> },
   ) => {
     const options = {
       ...thunderGraphQLOptions,
       ...graphqlOptions,
-    }
-    type CombinedSCLR = UnionOverrideKeys<SCLR, OVERRIDESCLR>
+    };
+    type CombinedSCLR = UnionOverrideKeys<SCLR, OVERRIDESCLR>;
     const returnedFunction = fn(
       Zeus(operation, o, {
         operationOptions: ops,
         scalars: options?.scalars,
       }),
-    ) as SubscriptionToGraphQL<Z, GraphQLTypes[R], CombinedSCLR>
+    ) as SubscriptionToGraphQL<Z, GraphQLTypes[R], CombinedSCLR>;
     if (returnedFunction?.on && options?.scalars) {
-      const wrapped = returnedFunction.on
-      returnedFunction.on = (
-        fnToCall: (args: InputType<GraphQLTypes[R], Z, CombinedSCLR>) => void,
-      ) =>
+      const wrapped = returnedFunction.on;
+      returnedFunction.on = (fnToCall: (args: InputType<GraphQLTypes[R], Z, CombinedSCLR>) => void) =>
         wrapped((data: InputType<GraphQLTypes[R], Z, CombinedSCLR>) => {
           if (options?.scalars) {
             return fnToCall(
@@ -370,67 +355,50 @@ export const SubscriptionThunder =
                 scalars: options.scalars,
                 ops: Ops,
               }),
-            )
+            );
           }
-          return fnToCall(data)
-        })
+          return fnToCall(data);
+        });
     }
-    return returnedFunction
-  }
+    return returnedFunction;
+  };
 
-export const Subscription = (...options: chainOptions) =>
-  SubscriptionThunder(apiSubscription(options))
+export const Subscription = (...options: chainOptions) => SubscriptionThunder(apiSubscription(options));
 export type SubscriptionToGraphQLSSE<Z, T, SCLR extends ScalarDefinition> = {
-  on: (fn: (args: InputType<T, Z, SCLR>) => void) => void
-  off: (
-    fn: (e: {
-      data?: InputType<T, Z, SCLR>
-      code?: number
-      reason?: string
-      message?: string
-    }) => void,
-  ) => void
-  error: (fn: (e: { data?: InputType<T, Z, SCLR>; errors?: string[] }) => void) => void
-  open: (fn?: () => void) => void
-  close: () => void
-}
+  on: (fn: (args: InputType<T, Z, SCLR>) => void) => void;
+  off: (fn: (e: { data?: InputType<T, Z, SCLR>; code?: number; reason?: string; message?: string }) => void) => void;
+  error: (fn: (e: { data?: InputType<T, Z, SCLR>; errors?: string[] }) => void) => void;
+  open: (fn?: () => void) => void;
+  close: () => void;
+};
 
 export const SubscriptionThunderSSE =
-  <SCLR extends ScalarDefinition>(
-    fn: SubscriptionFunction,
-    thunderGraphQLOptions?: ThunderGraphQLOptions<SCLR>,
-  ) =>
-  <
-    O extends keyof typeof Ops,
-    OVERRIDESCLR extends SCLR,
-    R extends keyof ValueTypes = GenericOperation<O>,
-  >(
+  <SCLR extends ScalarDefinition>(fn: SubscriptionFunction, thunderGraphQLOptions?: ThunderGraphQLOptions<SCLR>) =>
+  <O extends keyof typeof Ops, OVERRIDESCLR extends SCLR, R extends keyof ValueTypes = GenericOperation<O>>(
     operation: O,
     graphqlOptions?: ThunderGraphQLOptions<OVERRIDESCLR>,
   ) =>
   <Z extends ValueTypes[R]>(
     o: Z & {
-      [P in keyof Z]: P extends keyof ValueTypes[R] ? Z[P] : never
+      [P in keyof Z]: P extends keyof ValueTypes[R] ? Z[P] : never;
     },
     ops?: OperationOptions & { variables?: Record<string, unknown> },
   ) => {
     const options = {
       ...thunderGraphQLOptions,
       ...graphqlOptions,
-    }
-    type CombinedSCLR = UnionOverrideKeys<SCLR, OVERRIDESCLR>
+    };
+    type CombinedSCLR = UnionOverrideKeys<SCLR, OVERRIDESCLR>;
     const returnedFunction = fn(
       Zeus(operation, o, {
         operationOptions: ops,
         scalars: options?.scalars,
       }),
       ops?.variables,
-    ) as SubscriptionToGraphQLSSE<Z, GraphQLTypes[R], CombinedSCLR>
+    ) as SubscriptionToGraphQLSSE<Z, GraphQLTypes[R], CombinedSCLR>;
     if (returnedFunction?.on && options?.scalars) {
-      const wrapped = returnedFunction.on
-      returnedFunction.on = (
-        fnToCall: (args: InputType<GraphQLTypes[R], Z, CombinedSCLR>) => void,
-      ) =>
+      const wrapped = returnedFunction.on;
+      returnedFunction.on = (fnToCall: (args: InputType<GraphQLTypes[R], Z, CombinedSCLR>) => void) =>
         wrapped((data: InputType<GraphQLTypes[R], Z, CombinedSCLR>) => {
           if (options?.scalars) {
             return fnToCall(
@@ -442,15 +410,14 @@ export const SubscriptionThunderSSE =
                 scalars: options.scalars,
                 ops: Ops,
               }),
-            )
+            );
           }
-          return fnToCall(data)
-        })
+          return fnToCall(data);
+        });
     }
-    return returnedFunction
-  }
-export const SubscriptionSSE = (...options: chainOptions) =>
-  SubscriptionThunderSSE(apiSubscriptionSSE(options))
+    return returnedFunction;
+  };
+export const SubscriptionSSE = (...options: chainOptions) => SubscriptionThunderSSE(apiSubscriptionSSE(options));
 export const Zeus = <
   Z extends ValueTypes[R],
   O extends keyof typeof Ops,
@@ -459,8 +426,8 @@ export const Zeus = <
   operation: O,
   o: Z,
   ops?: {
-    operationOptions?: OperationOptions
-    scalars?: ScalarDefinition
+    operationOptions?: OperationOptions;
+    scalars?: ScalarDefinition;
   },
 ) =>
   InternalsBuildQuery({
@@ -469,24 +436,23 @@ export const Zeus = <
     ops: Ops,
     options: ops?.operationOptions,
     scalars: ops?.scalars,
-  })(operation, o as VType)
+  })(operation, o as VType);
 
-export const ZeusSelect = <T>() => ((t: unknown) => t) as SelectionFunction<T>
+export const ZeusSelect = <T>() => ((t: unknown) => t) as SelectionFunction<T>;
 
-export const Selector = <T extends keyof ValueTypes>(key: T) => key && ZeusSelect<ValueTypes[T]>()
+export const Selector = <T extends keyof ValueTypes>(key: T) => key && ZeusSelect<ValueTypes[T]>();
 
-export const TypeFromSelector = <T extends keyof ValueTypes>(key: T) =>
-  key && ZeusSelect<ValueTypes[T]>()
+export const TypeFromSelector = <T extends keyof ValueTypes>(key: T) => key && ZeusSelect<ValueTypes[T]>();
 export const Gql = Chain(HOST, {
   headers: {
-    "Content-Type": "application/json",
+    'Content-Type': 'application/json',
     ...HEADERS,
   },
-})
+});
 
-export const ZeusScalars = ZeusSelect<ScalarCoders>()
+export const ZeusScalars = ZeusSelect<ScalarCoders>();
 
-type BaseSymbol = number | string | undefined | boolean | null
+type BaseSymbol = number | string | undefined | boolean | null;
 
 type ScalarsSelector<T, V> = {
   [X in Required<{
@@ -494,34 +460,33 @@ type ScalarsSelector<T, V> = {
       ? V[P] extends Array<any> | undefined
         ? never
         : T[P] extends BaseSymbol | Array<BaseSymbol>
-          ? P
-          : never
-      : never
-  }>[keyof T]]: true
-}
+        ? P
+        : never
+      : never;
+  }>[keyof T]]: true;
+};
 
 export const fields = <T extends keyof ModelTypes>(k: T) => {
-  const t = ReturnTypes[k]
-  const fnType = k in AllTypesProps ? AllTypesProps[k as keyof typeof AllTypesProps] : undefined
-  const hasFnTypes = typeof fnType === "object" ? fnType : undefined
+  const t = ReturnTypes[k];
+  const fnType = k in AllTypesProps ? AllTypesProps[k as keyof typeof AllTypesProps] : undefined;
+  const hasFnTypes = typeof fnType === 'object' ? fnType : undefined;
   const o = Object.fromEntries(
     Object.entries(t)
       .filter(([k, value]) => {
-        const isFunctionType =
-          hasFnTypes && k in hasFnTypes && !!hasFnTypes[k as keyof typeof hasFnTypes]
-        if (isFunctionType) return false
-        const isReturnType = ReturnTypes[value as string]
-        if (!isReturnType) return true
-        if (typeof isReturnType !== "string") return false
-        if (isReturnType.startsWith("scalar.")) {
-          return true
+        const isFunctionType = hasFnTypes && k in hasFnTypes && !!hasFnTypes[k as keyof typeof hasFnTypes];
+        if (isFunctionType) return false;
+        const isReturnType = ReturnTypes[value as string];
+        if (!isReturnType) return true;
+        if (typeof isReturnType !== 'string') return false;
+        if (isReturnType.startsWith('scalar.')) {
+          return true;
         }
-        return false
+        return false;
       })
       .map(([key]) => [key, true as const]),
-  )
-  return o as ScalarsSelector<ModelTypes[T], T extends keyof ValueTypes ? ValueTypes[T] : never>
-}
+  );
+  return o as ScalarsSelector<ModelTypes[T], T extends keyof ValueTypes ? ValueTypes[T] : never>;
+};
 
 export const decodeScalarsInResponse = <O extends Operations>({
   response,
@@ -531,188 +496,167 @@ export const decodeScalarsInResponse = <O extends Operations>({
   initialZeusQuery,
   initialOp,
 }: {
-  ops: O
-  response: any
-  returns: ReturnTypesType
-  scalars?: Record<string, ScalarResolver | undefined>
-  initialOp: keyof O
-  initialZeusQuery: InputValueType | VType
+  ops: O;
+  response: any;
+  returns: ReturnTypesType;
+  scalars?: Record<string, ScalarResolver | undefined>;
+  initialOp: keyof O;
+  initialZeusQuery: InputValueType | VType;
 }) => {
   if (!scalars) {
-    return response
+    return response;
   }
   const builder = PrepareScalarPaths({
     ops,
     returns,
-  })
+  });
 
-  const scalarPaths = builder(initialOp as string, ops[initialOp], initialZeusQuery)
+  const scalarPaths = builder(initialOp as string, ops[initialOp], initialZeusQuery);
   if (scalarPaths) {
-    const r = traverseResponse({ scalarPaths, resolvers: scalars })(initialOp as string, response, [
-      ops[initialOp],
-    ])
-    return r
+    const r = traverseResponse({ scalarPaths, resolvers: scalars })(initialOp as string, response, [ops[initialOp]]);
+    return r;
   }
-  return response
-}
+  return response;
+};
 
 export const traverseResponse = ({
   resolvers,
   scalarPaths,
 }: {
-  scalarPaths: { [x: string]: `scalar.${string}` }
+  scalarPaths: { [x: string]: `scalar.${string}` };
   resolvers: {
-    [x: string]: ScalarResolver | undefined
-  }
+    [x: string]: ScalarResolver | undefined;
+  };
 }) => {
   const ibb = (k: string, o: InputValueType | VType, p: string[] = []): unknown => {
     if (Array.isArray(o)) {
-      return o.map((eachO) => ibb(k, eachO, p))
+      return o.map((eachO) => ibb(k, eachO, p));
     }
     if (o == null) {
-      return o
+      return o;
     }
-    const scalarPathString = p.join(SEPARATOR)
-    const currentScalarString = scalarPaths[scalarPathString]
+    const scalarPathString = p.join(SEPARATOR);
+    const currentScalarString = scalarPaths[scalarPathString];
     if (currentScalarString) {
-      const currentDecoder = resolvers[currentScalarString.split(".")[1]]?.decode
+      const currentDecoder = resolvers[currentScalarString.split('.')[1]]?.decode;
       if (currentDecoder) {
-        return currentDecoder(o)
+        return currentDecoder(o);
       }
     }
-    if (typeof o === "boolean" || typeof o === "number" || typeof o === "string" || !o) {
-      return o
+    if (typeof o === 'boolean' || typeof o === 'number' || typeof o === 'string' || !o) {
+      return o;
     }
-    const entries = Object.entries(o).map(
-      ([k, v]) => [k, ibb(k, v, [...p, purifyGraphQLKey(k)])] as const,
-    )
+    const entries = Object.entries(o).map(([k, v]) => [k, ibb(k, v, [...p, purifyGraphQLKey(k)])] as const);
     const objectFromEntries = entries.reduce<Record<string, unknown>>((a, [k, v]) => {
-      a[k] = v
-      return a
-    }, {})
-    return objectFromEntries
-  }
-  return ibb
-}
+      a[k] = v;
+      return a;
+    }, {});
+    return objectFromEntries;
+  };
+  return ibb;
+};
 
 export type AllTypesPropsType = {
   [x: string]:
     | undefined
     | `scalar.${string}`
-    | "enum"
+    | 'enum'
     | {
         [x: string]:
           | undefined
           | string
           | {
-              [x: string]: string | undefined
-            }
-      }
-}
+              [x: string]: string | undefined;
+            };
+      };
+};
 
 export type ReturnTypesType = {
   [x: string]:
     | {
-        [x: string]: string | undefined
+        [x: string]: string | undefined;
       }
     | `scalar.${string}`
-    | undefined
-}
+    | undefined;
+};
 export type InputValueType = {
-  [x: string]:
-    | undefined
-    | boolean
-    | string
-    | number
-    | [any, undefined | boolean | InputValueType]
-    | InputValueType
-}
+  [x: string]: undefined | boolean | string | number | [any, undefined | boolean | InputValueType] | InputValueType;
+};
 export type VType =
   | undefined
   | boolean
   | string
   | number
   | [any, undefined | boolean | InputValueType]
-  | InputValueType
+  | InputValueType;
 
-export type PlainType = boolean | number | string | null | undefined
+export type PlainType = boolean | number | string | null | undefined;
 export type ZeusArgsType =
   | PlainType
   | {
-      [x: string]: ZeusArgsType
+      [x: string]: ZeusArgsType;
     }
-  | Array<ZeusArgsType>
+  | Array<ZeusArgsType>;
 
-export type Operations = Record<string, string>
+export type Operations = Record<string, string>;
 
 export type VariableDefinition = {
-  [x: string]: unknown
-}
+  [x: string]: unknown;
+};
 
-export const SEPARATOR = "|"
+export const SEPARATOR = '|';
 
-export type fetchOptions = Parameters<typeof fetch>
-type websocketOptions = typeof WebSocket extends new (...args: infer R) => WebSocket ? R : never
-export type chainOptions =
-  | [fetchOptions[0], fetchOptions[1] & { websocket?: websocketOptions }]
-  | [fetchOptions[0]]
-export type FetchFunction = (query: string, variables?: Record<string, unknown>) => Promise<any>
-export type SubscriptionFunction = (query: string, variables?: Record<string, unknown>) => any
-type NotUndefined<T> = T extends undefined ? never : T
-export type ResolverType<F> = NotUndefined<F extends [infer ARGS, any] ? ARGS : undefined>
+export type fetchOptions = Parameters<typeof fetch>;
+type websocketOptions = typeof WebSocket extends new (...args: infer R) => WebSocket ? R : never;
+export type chainOptions = [fetchOptions[0], fetchOptions[1] & { websocket?: websocketOptions }] | [fetchOptions[0]];
+export type FetchFunction = (query: string, variables?: Record<string, unknown>) => Promise<any>;
+export type SubscriptionFunction = (query: string, variables?: Record<string, unknown>) => any;
+type NotUndefined<T> = T extends undefined ? never : T;
+export type ResolverType<F> = NotUndefined<F extends [infer ARGS, any] ? ARGS : undefined>;
 
 export type OperationOptions = {
-  operationName?: string
-}
+  operationName?: string;
+};
 
-export type ScalarCoder = Record<string, (s: unknown) => string>
+export type ScalarCoder = Record<string, (s: unknown) => string>;
 
 export interface GraphQLResponse {
-  data?: Record<string, any>
+  data?: Record<string, any>;
   errors?: Array<{
-    message: string
-  }>
+    message: string;
+  }>;
 }
 export class GraphQLError extends Error {
   constructor(public response: GraphQLResponse) {
-    super(response.errors?.[0]?.message || "GraphQL Response Error")
-    console.error(response)
+    super(response.errors?.[0]?.message || 'GraphQL Response Error');
+    console.error(response);
   }
   toString() {
-    return "GraphQL Response Error"
+    return 'GraphQL Response Error';
   }
 }
-export type GenericOperation<O> = O extends keyof typeof Ops ? (typeof Ops)[O] : never
+export type GenericOperation<O> = O extends keyof typeof Ops ? (typeof Ops)[O] : never;
 export type ThunderGraphQLOptions<SCLR extends ScalarDefinition> = {
-  scalars?: SCLR | ScalarCoders
-}
+  scalars?: SCLR | ScalarCoders;
+};
 
-const ExtractScalar = (
-  mappedParts: string[],
-  returns: ReturnTypesType,
-): `scalar.${string}` | undefined => {
+const ExtractScalar = (mappedParts: string[], returns: ReturnTypesType): `scalar.${string}` | undefined => {
   if (mappedParts.length === 0) {
-    return
+    return;
   }
-  const oKey = mappedParts[0]
-  const returnP1 = returns[oKey]
-  if (typeof returnP1 === "object") {
-    const returnP2 = returnP1[mappedParts[1]]
+  const oKey = mappedParts[0];
+  const returnP1 = returns[oKey];
+  if (typeof returnP1 === 'object') {
+    const returnP2 = returnP1[mappedParts[1]];
     if (returnP2) {
-      return ExtractScalar([returnP2, ...mappedParts.slice(2)], returns)
+      return ExtractScalar([returnP2, ...mappedParts.slice(2)], returns);
     }
-    return undefined
+    return undefined;
   }
-  return returnP1 as `scalar.${string}` | undefined
-}
+  return returnP1 as `scalar.${string}` | undefined;
+};
 
-export const PrepareScalarPaths = ({
-  ops,
-  returns,
-}: {
-  returns: ReturnTypesType
-  ops: Operations
-}) => {
+export const PrepareScalarPaths = ({ ops, returns }: { returns: ReturnTypesType; ops: Operations }) => {
   const ibb = (
     k: string,
     originalKey: string,
@@ -722,45 +666,45 @@ export const PrepareScalarPaths = ({
     root = true,
   ): { [x: string]: `scalar.${string}` } | undefined => {
     if (!o) {
-      return
+      return;
     }
-    if (typeof o === "boolean" || typeof o === "number" || typeof o === "string") {
-      const extractionArray = [...pOriginals, originalKey]
-      const isScalar = ExtractScalar(extractionArray, returns)
-      if (isScalar?.startsWith("scalar")) {
+    if (typeof o === 'boolean' || typeof o === 'number' || typeof o === 'string') {
+      const extractionArray = [...pOriginals, originalKey];
+      const isScalar = ExtractScalar(extractionArray, returns);
+      if (isScalar?.startsWith('scalar')) {
         const partOfTree = {
           [[...p, k].join(SEPARATOR)]: isScalar,
-        }
-        return partOfTree
+        };
+        return partOfTree;
       }
-      return {}
+      return {};
     }
     if (Array.isArray(o)) {
-      return ibb(k, k, o[1], p, pOriginals, false)
+      return ibb(k, k, o[1], p, pOriginals, false);
     }
-    if (k === "__alias") {
+    if (k === '__alias') {
       return Object.entries(o)
         .map(([alias, objectUnderAlias]) => {
-          if (typeof objectUnderAlias !== "object" || Array.isArray(objectUnderAlias)) {
+          if (typeof objectUnderAlias !== 'object' || Array.isArray(objectUnderAlias)) {
             throw new Error(
-              "Invalid alias it should be __alias:{ YOUR_ALIAS_NAME: { OPERATION_NAME: { ...selectors }}}",
-            )
+              'Invalid alias it should be __alias:{ YOUR_ALIAS_NAME: { OPERATION_NAME: { ...selectors }}}',
+            );
           }
-          const operationName = Object.keys(objectUnderAlias)[0]
-          const operation = objectUnderAlias[operationName]
-          return ibb(alias, operationName, operation, p, pOriginals, false)
+          const operationName = Object.keys(objectUnderAlias)[0];
+          const operation = objectUnderAlias[operationName];
+          return ibb(alias, operationName, operation, p, pOriginals, false);
         })
         .reduce((a, b) => ({
           ...a,
           ...b,
-        }))
+        }));
     }
-    const keyName = root ? ops[k] : k
+    const keyName = root ? ops[k] : k;
     return Object.entries(o)
-      .filter(([k]) => k !== "__directives")
+      .filter(([k]) => k !== '__directives')
       .map(([k, v]) => {
         // Inline fragments shouldn't be added to the path as they aren't a field
-        const isInlineFragment = originalKey.match(/^...\s*on/) != null
+        const isInlineFragment = originalKey.match(/^...\s*on/) != null;
         return ibb(
           k,
           k,
@@ -768,111 +712,107 @@ export const PrepareScalarPaths = ({
           isInlineFragment ? p : [...p, purifyGraphQLKey(keyName || k)],
           isInlineFragment ? pOriginals : [...pOriginals, purifyGraphQLKey(originalKey)],
           false,
-        )
+        );
       })
       .reduce((a, b) => ({
         ...a,
         ...b,
-      }))
-  }
-  return ibb
-}
+      }));
+  };
+  return ibb;
+};
 
-export const purifyGraphQLKey = (k: string) => k.replace(/\([^)]*\)/g, "").replace(/^[^:]*\:/g, "")
+export const purifyGraphQLKey = (k: string) => k.replace(/\([^)]*\)/g, '').replace(/^[^:]*\:/g, '');
 
 const mapPart = (p: string) => {
-  const [isArg, isField] = p.split("<>")
+  const [isArg, isField] = p.split('<>');
   if (isField) {
     return {
       v: isField,
-      __type: "field",
-    } as const
+      __type: 'field',
+    } as const;
   }
   return {
     v: isArg,
-    __type: "arg",
-  } as const
-}
+    __type: 'arg',
+  } as const;
+};
 
-type Part = ReturnType<typeof mapPart>
+type Part = ReturnType<typeof mapPart>;
 
-export const ResolveFromPath = (
-  props: AllTypesPropsType,
-  returns: ReturnTypesType,
-  ops: Operations,
-) => {
+export const ResolveFromPath = (props: AllTypesPropsType, returns: ReturnTypesType, ops: Operations) => {
   const ResolvePropsType = (mappedParts: Part[]) => {
-    const oKey = ops[mappedParts[0].v]
-    const propsP1 = oKey ? props[oKey] : props[mappedParts[0].v]
-    if (propsP1 === "enum" && mappedParts.length === 1) {
-      return "enum"
+    const oKey = ops[mappedParts[0].v];
+    const propsP1 = oKey ? props[oKey] : props[mappedParts[0].v];
+    if (propsP1 === 'enum' && mappedParts.length === 1) {
+      return 'enum';
     }
-    if (typeof propsP1 === "string" && propsP1.startsWith("scalar.") && mappedParts.length === 1) {
-      return propsP1
+    if (typeof propsP1 === 'string' && propsP1.startsWith('scalar.') && mappedParts.length === 1) {
+      return propsP1;
     }
-    if (typeof propsP1 === "object") {
+    if (typeof propsP1 === 'object') {
       if (mappedParts.length < 2) {
-        return "not"
+        return 'not';
       }
-      const propsP2 = propsP1[mappedParts[1].v]
-      if (typeof propsP2 === "string") {
+      const propsP2 = propsP1[mappedParts[1].v];
+      if (typeof propsP2 === 'string') {
         return rpp(
           `${propsP2}${SEPARATOR}${mappedParts
             .slice(2)
             .map((mp) => mp.v)
             .join(SEPARATOR)}`,
-        )
+        );
       }
-      if (typeof propsP2 === "object") {
+      if (typeof propsP2 === 'object') {
         if (mappedParts.length < 3) {
-          return "not"
+          return 'not';
         }
-        const propsP3 = propsP2[mappedParts[2].v]
-        if (propsP3 && mappedParts[2].__type === "arg") {
+        const propsP3 = propsP2[mappedParts[2].v];
+        if (propsP3 && mappedParts[2].__type === 'arg') {
           return rpp(
             `${propsP3}${SEPARATOR}${mappedParts
               .slice(3)
               .map((mp) => mp.v)
               .join(SEPARATOR)}`,
-          )
+          );
         }
       }
     }
-  }
+  };
   const ResolveReturnType = (mappedParts: Part[]) => {
     if (mappedParts.length === 0) {
-      return "not"
+      return 'not';
     }
-    const oKey = ops[mappedParts[0].v]
-    const returnP1 = oKey ? returns[oKey] : returns[mappedParts[0].v]
-    if (typeof returnP1 === "object") {
-      if (mappedParts.length < 2) return "not"
-      const returnP2 = returnP1[mappedParts[1].v]
+    const oKey = ops[mappedParts[0].v];
+    const returnP1 = oKey ? returns[oKey] : returns[mappedParts[0].v];
+    if (typeof returnP1 === 'object') {
+      if (mappedParts.length < 2) return 'not';
+      const returnP2 = returnP1[mappedParts[1].v];
       if (returnP2) {
         return rpp(
           `${returnP2}${SEPARATOR}${mappedParts
             .slice(2)
             .map((mp) => mp.v)
             .join(SEPARATOR)}`,
-        )
+        );
       }
     }
-  }
-  const rpp = (path: string): "enum" | "not" | `scalar.${string}` => {
-    const parts = path.split(SEPARATOR).filter((l) => l.length > 0)
-    const mappedParts = parts.map(mapPart)
-    const propsP1 = ResolvePropsType(mappedParts)
+  };
+  const rpp = (path: string): 'enum' | 'not' | `scalar.${string}` => {
+    const parts = path.split(SEPARATOR).filter((l) => l.length > 0);
+    const mappedParts = parts.map(mapPart);
+    const propsP1 = ResolvePropsType(mappedParts);
     if (propsP1) {
-      return propsP1
+      return propsP1;
     }
-    const returnP1 = ResolveReturnType(mappedParts)
+    const returnP1 = ResolveReturnType(mappedParts);
     if (returnP1) {
-      return returnP1
+      return returnP1;
     }
-    return "not"
-  }
-  return rpp
-}
+    return 'not';
+  };
+  return rpp;
+};
 
 export const InternalArgsBuilt = ({
   props,
@@ -881,808 +821,708 @@ export const InternalArgsBuilt = ({
   scalars,
   vars,
 }: {
-  props: AllTypesPropsType
-  returns: ReturnTypesType
-  ops: Operations
-  scalars?: ScalarDefinition
-  vars: Array<{ name: string; graphQLType: string }>
+  props: AllTypesPropsType;
+  returns: ReturnTypesType;
+  ops: Operations;
+  scalars?: ScalarDefinition;
+  vars: Array<{ name: string; graphQLType: string }>;
 }) => {
-  const arb = (a: ZeusArgsType, p = "", root = true): string => {
-    if (typeof a === "string") {
+  const arb = (a: ZeusArgsType, p = '', root = true): string => {
+    if (typeof a === 'string') {
       if (a.startsWith(START_VAR_NAME)) {
-        const [varName, graphQLType] = a.replace(START_VAR_NAME, "$").split(GRAPHQL_TYPE_SEPARATOR)
-        const v = vars.find((v) => v.name === varName)
+        const [varName, graphQLType] = a.replace(START_VAR_NAME, '$').split(GRAPHQL_TYPE_SEPARATOR);
+        const v = vars.find((v) => v.name === varName);
         if (!v) {
           vars.push({
             name: varName,
             graphQLType,
-          })
+          });
         } else {
           if (v.graphQLType !== graphQLType) {
             throw new Error(
               `Invalid variable exists with two different GraphQL Types, "${v.graphQLType}" and ${graphQLType}`,
-            )
+            );
           }
         }
-        return varName
+        return varName;
       }
     }
-    const checkType = ResolveFromPath(props, returns, ops)(p)
-    if (checkType.startsWith("scalar.")) {
+    const checkType = ResolveFromPath(props, returns, ops)(p);
+    if (checkType.startsWith('scalar.')) {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const [_, ...splittedScalar] = checkType.split(".")
-      const scalarKey = splittedScalar.join(".")
-      return (scalars?.[scalarKey]?.encode?.(a) as string) || JSON.stringify(a)
+      const [_, ...splittedScalar] = checkType.split('.');
+      const scalarKey = splittedScalar.join('.');
+      return (scalars?.[scalarKey]?.encode?.(a) as string) || JSON.stringify(a);
     }
     if (Array.isArray(a)) {
-      return `[${a.map((arr) => arb(arr, p, false)).join(", ")}]`
+      return `[${a.map((arr) => arb(arr, p, false)).join(', ')}]`;
     }
-    if (typeof a === "string") {
-      if (checkType === "enum") {
-        return a
+    if (typeof a === 'string') {
+      if (checkType === 'enum') {
+        return a;
       }
-      return `${JSON.stringify(a)}`
+      return `${JSON.stringify(a)}`;
     }
-    if (typeof a === "object") {
+    if (typeof a === 'object') {
       if (a === null) {
-        return `null`
+        return `null`;
       }
       const returnedObjectString = Object.entries(a)
-        .filter(([, v]) => typeof v !== "undefined")
+        .filter(([, v]) => typeof v !== 'undefined')
         .map(([k, v]) => `${k}: ${arb(v, [p, k].join(SEPARATOR), false)}`)
-        .join(",\n")
+        .join(',\n');
       if (!root) {
-        return `{${returnedObjectString}}`
+        return `{${returnedObjectString}}`;
       }
-      return returnedObjectString
+      return returnedObjectString;
     }
-    return `${a}`
-  }
-  return arb
-}
+    return `${a}`;
+  };
+  return arb;
+};
 
-export const resolverFor = <
-  X,
-  T extends keyof ResolverInputTypes,
-  Z extends keyof ResolverInputTypes[T],
->(
+export const resolverFor = <X, T extends keyof ResolverInputTypes, Z extends keyof ResolverInputTypes[T]>(
   _type: T,
   _field: Z,
   fn: (
     args: Required<ResolverInputTypes[T]>[Z] extends [infer Input, any] ? Input : any,
     source: any,
   ) => Z extends keyof ModelTypes[T] ? ModelTypes[T][Z] | Promise<ModelTypes[T][Z]> | X : never,
-) => fn as (args?: any, source?: any) => ReturnType<typeof fn>
+) => fn as (args?: any, source?: any) => ReturnType<typeof fn>;
 
-export type UnwrapPromise<T> = T extends Promise<infer R> ? R : T
-export type ZeusState<T extends (...args: any[]) => Promise<any>> = NonNullable<
-  UnwrapPromise<ReturnType<T>>
->
+export type UnwrapPromise<T> = T extends Promise<infer R> ? R : T;
+export type ZeusState<T extends (...args: any[]) => Promise<any>> = NonNullable<UnwrapPromise<ReturnType<T>>>;
 export type ZeusHook<
   T extends (...args: any[]) => Record<string, (...args: any[]) => Promise<any>>,
   N extends keyof ReturnType<T>,
-> = ZeusState<ReturnType<T>[N]>
+> = ZeusState<ReturnType<T>[N]>;
 
 export type WithTypeNameValue<T> = T & {
-  __typename?: boolean
-  __directives?: string
-}
+  __typename?: boolean;
+  __directives?: string;
+};
 export type AliasType<T> = WithTypeNameValue<T> & {
-  __alias?: Record<string, WithTypeNameValue<T>>
-}
+  __alias?: Record<string, WithTypeNameValue<T>>;
+};
 type DeepAnify<T> = {
-  [P in keyof T]?: any
-}
-type IsPayLoad<T> = T extends [any, infer PayLoad] ? PayLoad : T
-export type ScalarDefinition = Record<string, ScalarResolver>
+  [P in keyof T]?: any;
+};
+type IsPayLoad<T> = T extends [any, infer PayLoad] ? PayLoad : T;
+export type ScalarDefinition = Record<string, ScalarResolver>;
 
-type IsScalar<S, SCLR extends ScalarDefinition> = S extends "scalar" & { name: infer T }
+type IsScalar<S, SCLR extends ScalarDefinition> = S extends 'scalar' & { name: infer T }
   ? T extends keyof SCLR
-    ? SCLR[T]["decode"] extends (s: unknown) => unknown
-      ? ReturnType<SCLR[T]["decode"]>
+    ? SCLR[T]['decode'] extends (s: unknown) => unknown
+      ? ReturnType<SCLR[T]['decode']>
       : unknown
     : unknown
   : S extends Array<infer R>
-    ? Array<IsScalar<R, SCLR>>
-    : S
+  ? Array<IsScalar<R, SCLR>>
+  : S;
 
-type IsArray<T, U, SCLR extends ScalarDefinition> =
-  T extends Array<infer R> ? InputType<R, U, SCLR>[] : InputType<T, U, SCLR>
-type FlattenArray<T> = T extends Array<infer R> ? R : T
-type BaseZeusResolver = boolean | 1 | string | Variable<any, string>
+type IsArray<T, U, SCLR extends ScalarDefinition> = T extends Array<infer R>
+  ? InputType<R, U, SCLR>[]
+  : InputType<T, U, SCLR>;
+type FlattenArray<T> = T extends Array<infer R> ? R : T;
+type BaseZeusResolver = boolean | 1 | string | Variable<any, string>;
 
-type IsInterfaced<SRC extends DeepAnify<DST>, DST, SCLR extends ScalarDefinition> =
-  FlattenArray<SRC> extends ZEUS_INTERFACES | ZEUS_UNIONS
-    ? {
-        [P in keyof SRC]: SRC[P] extends "__union" & infer R
-          ? P extends keyof DST
-            ? IsArray<
-                R,
-                "__typename" extends keyof DST ? DST[P] & { __typename: true } : DST[P],
-                SCLR
-              >
-            : IsArray<
-                R,
-                "__typename" extends keyof DST ? { __typename: true } : Record<string, never>,
-                SCLR
-              >
-          : never
-      }[keyof SRC] & {
-        [P in keyof Omit<
-          Pick<
-            SRC,
-            {
-              [P in keyof DST]: SRC[P] extends "__union" & infer _R ? never : P
-            }[keyof DST]
-          >,
-          "__typename"
-        >]: IsPayLoad<DST[P]> extends BaseZeusResolver
-          ? IsScalar<SRC[P], SCLR>
-          : IsArray<SRC[P], DST[P], SCLR>
-      }
-    : {
-        [P in keyof Pick<SRC, keyof DST>]: IsPayLoad<DST[P]> extends BaseZeusResolver
-          ? IsScalar<SRC[P], SCLR>
-          : IsArray<SRC[P], DST[P], SCLR>
-      }
+type IsInterfaced<SRC extends DeepAnify<DST>, DST, SCLR extends ScalarDefinition> = FlattenArray<SRC> extends
+  | ZEUS_INTERFACES
+  | ZEUS_UNIONS
+  ? {
+      [P in keyof SRC]: SRC[P] extends '__union' & infer R
+        ? P extends keyof DST
+          ? IsArray<R, '__typename' extends keyof DST ? DST[P] & { __typename: true } : DST[P], SCLR>
+          : IsArray<R, '__typename' extends keyof DST ? { __typename: true } : Record<string, never>, SCLR>
+        : never;
+    }[keyof SRC] & {
+      [P in keyof Omit<
+        Pick<
+          SRC,
+          {
+            [P in keyof DST]: SRC[P] extends '__union' & infer _R ? never : P;
+          }[keyof DST]
+        >,
+        '__typename'
+      >]: IsPayLoad<DST[P]> extends BaseZeusResolver ? IsScalar<SRC[P], SCLR> : IsArray<SRC[P], DST[P], SCLR>;
+    }
+  : {
+      [P in keyof Pick<SRC, keyof DST>]: IsPayLoad<DST[P]> extends BaseZeusResolver
+        ? IsScalar<SRC[P], SCLR>
+        : IsArray<SRC[P], DST[P], SCLR>;
+    };
 
-export type MapType<SRC, DST, SCLR extends ScalarDefinition> =
-  SRC extends DeepAnify<DST> ? IsInterfaced<SRC, DST, SCLR> : never
+export type MapType<SRC, DST, SCLR extends ScalarDefinition> = SRC extends DeepAnify<DST>
+  ? IsInterfaced<SRC, DST, SCLR>
+  : never;
 // eslint-disable-next-line @typescript-eslint/ban-types
-export type InputType<SRC, DST, SCLR extends ScalarDefinition = {}> =
-  IsPayLoad<DST> extends { __alias: infer R }
-    ? {
-        [P in keyof R]: MapType<SRC, R[P], SCLR>[keyof MapType<SRC, R[P], SCLR>]
-      } & MapType<SRC, Omit<IsPayLoad<DST>, "__alias">, SCLR>
-    : MapType<SRC, IsPayLoad<DST>, SCLR>
+export type InputType<SRC, DST, SCLR extends ScalarDefinition = {}> = IsPayLoad<DST> extends { __alias: infer R }
+  ? {
+      [P in keyof R]: MapType<SRC, R[P], SCLR>[keyof MapType<SRC, R[P], SCLR>];
+    } & MapType<SRC, Omit<IsPayLoad<DST>, '__alias'>, SCLR>
+  : MapType<SRC, IsPayLoad<DST>, SCLR>;
 export type SubscriptionToGraphQL<Z, T, SCLR extends ScalarDefinition> = {
-  ws: WebSocket
-  on: (fn: (args: InputType<T, Z, SCLR>) => void) => void
-  off: (
-    fn: (e: {
-      data?: InputType<T, Z, SCLR>
-      code?: number
-      reason?: string
-      message?: string
-    }) => void,
-  ) => void
-  error: (fn: (e: { data?: InputType<T, Z, SCLR>; errors?: string[] }) => void) => void
-  open: () => void
-}
+  ws: WebSocket;
+  on: (fn: (args: InputType<T, Z, SCLR>) => void) => void;
+  off: (fn: (e: { data?: InputType<T, Z, SCLR>; code?: number; reason?: string; message?: string }) => void) => void;
+  error: (fn: (e: { data?: InputType<T, Z, SCLR>; errors?: string[] }) => void) => void;
+  open: () => void;
+};
 
 // eslint-disable-next-line @typescript-eslint/ban-types
-export type FromSelector<
+export type FromSelector<SELECTOR, NAME extends keyof GraphQLTypes, SCLR extends ScalarDefinition = {}> = InputType<
+  GraphQLTypes[NAME],
   SELECTOR,
-  NAME extends keyof GraphQLTypes,
-  SCLR extends ScalarDefinition = {},
-> = InputType<GraphQLTypes[NAME], SELECTOR, SCLR>
+  SCLR
+>;
 
 export type ScalarResolver = {
-  encode?: (s: unknown) => string
-  decode?: (s: unknown) => unknown
-}
+  encode?: (s: unknown) => string;
+  decode?: (s: unknown) => unknown;
+};
 
 export type SelectionFunction<V> = <Z extends V>(
   t: Z & {
-    [P in keyof Z]: P extends keyof V ? Z[P] : never
+    [P in keyof Z]: P extends keyof V ? Z[P] : never;
   },
-) => Z
+) => Z;
 
 type BuiltInVariableTypes = {
-  ["String"]: string
-  ["Int"]: number
-  ["Float"]: number
-  ["Boolean"]: boolean
-}
-type AllVariableTypes = keyof BuiltInVariableTypes | keyof ZEUS_VARIABLES
-type VariableRequired<T extends string> =
-  | `${T}!`
-  | T
-  | `[${T}]`
-  | `[${T}]!`
-  | `[${T}!]`
-  | `[${T}!]!`
-type VR<T extends string> = VariableRequired<VariableRequired<T>>
+  ['String']: string;
+  ['Int']: number;
+  ['Float']: number;
+  ['Boolean']: boolean;
+};
+type AllVariableTypes = keyof BuiltInVariableTypes | keyof ZEUS_VARIABLES;
+type VariableRequired<T extends string> = `${T}!` | T | `[${T}]` | `[${T}]!` | `[${T}!]` | `[${T}!]!`;
+type VR<T extends string> = VariableRequired<VariableRequired<T>>;
 
-export type GraphQLVariableType = VR<AllVariableTypes>
+export type GraphQLVariableType = VR<AllVariableTypes>;
 
-type ExtractVariableTypeString<T extends string> =
-  T extends VR<infer R1>
-    ? R1 extends VR<infer R2>
-      ? R2 extends VR<infer R3>
-        ? R3 extends VR<infer R4>
-          ? R4 extends VR<infer R5>
-            ? R5
-            : R4
-          : R3
-        : R2
-      : R1
-    : T
+type ExtractVariableTypeString<T extends string> = T extends VR<infer R1>
+  ? R1 extends VR<infer R2>
+    ? R2 extends VR<infer R3>
+      ? R3 extends VR<infer R4>
+        ? R4 extends VR<infer R5>
+          ? R5
+          : R4
+        : R3
+      : R2
+    : R1
+  : T;
 
 type DecomposeType<T, Type> = T extends `[${infer R}]`
   ? Array<DecomposeType<R, Type>> | undefined
   : T extends `${infer R}!`
-    ? NonNullable<DecomposeType<R, Type>>
-    : Type | undefined
+  ? NonNullable<DecomposeType<R, Type>>
+  : Type | undefined;
 
 type ExtractTypeFromGraphQLType<T extends string> = T extends keyof ZEUS_VARIABLES
   ? ZEUS_VARIABLES[T]
   : T extends keyof BuiltInVariableTypes
-    ? BuiltInVariableTypes[T]
-    : any
+  ? BuiltInVariableTypes[T]
+  : any;
 
 export type GetVariableType<T extends string> = DecomposeType<
   T,
   ExtractTypeFromGraphQLType<ExtractVariableTypeString<T>>
->
+>;
 
 type UndefinedKeys<T> = {
-  [K in keyof T]-?: T[K] extends NonNullable<T[K]> ? never : K
-}[keyof T]
+  [K in keyof T]-?: T[K] extends NonNullable<T[K]> ? never : K;
+}[keyof T];
 
-type WithNullableKeys<T> = Pick<T, UndefinedKeys<T>>
-type WithNonNullableKeys<T> = Omit<T, UndefinedKeys<T>>
+type WithNullableKeys<T> = Pick<T, UndefinedKeys<T>>;
+type WithNonNullableKeys<T> = Omit<T, UndefinedKeys<T>>;
 
 type OptionalKeys<T> = {
-  [P in keyof T]?: T[P]
-}
+  [P in keyof T]?: T[P];
+};
 
-export type WithOptionalNullables<T> = OptionalKeys<WithNullableKeys<T>> & WithNonNullableKeys<T>
+export type WithOptionalNullables<T> = OptionalKeys<WithNullableKeys<T>> & WithNonNullableKeys<T>;
 
-export type ComposableSelector<T extends keyof ValueTypes> = ReturnType<
-  SelectionFunction<ValueTypes[T]>
->
+export type ComposableSelector<T extends keyof ValueTypes> = ReturnType<SelectionFunction<ValueTypes[T]>>;
 
 export type Variable<T extends GraphQLVariableType, Name extends string> = {
-  " __zeus_name": Name
-  " __zeus_type": T
-}
+  ' __zeus_name': Name;
+  ' __zeus_type': T;
+};
 
-export type ExtractVariablesDeep<Query> =
-  Query extends Variable<infer VType, infer VName>
-    ? { [key in VName]: GetVariableType<VType> }
-    : Query extends string | number | boolean | Array<string | number | boolean>
-      ? // eslint-disable-next-line @typescript-eslint/ban-types
-        {}
-      : UnionToIntersection<
-          { [K in keyof Query]: WithOptionalNullables<ExtractVariablesDeep<Query[K]>> }[keyof Query]
-        >
+export type ExtractVariablesDeep<Query> = Query extends Variable<infer VType, infer VName>
+  ? { [key in VName]: GetVariableType<VType> }
+  : Query extends string | number | boolean | Array<string | number | boolean>
+  ? // eslint-disable-next-line @typescript-eslint/ban-types
+    {}
+  : UnionToIntersection<{ [K in keyof Query]: WithOptionalNullables<ExtractVariablesDeep<Query[K]>> }[keyof Query]>;
 
-export type ExtractVariables<Query> =
-  Query extends Variable<infer VType, infer VName>
-    ? { [key in VName]: GetVariableType<VType> }
-    : Query extends [infer Inputs, infer Outputs]
-      ? ExtractVariablesDeep<Inputs> & ExtractVariables<Outputs>
-      : Query extends string | number | boolean | Array<string | number | boolean>
-        ? // eslint-disable-next-line @typescript-eslint/ban-types
-          {}
-        : UnionToIntersection<
-            { [K in keyof Query]: WithOptionalNullables<ExtractVariables<Query[K]>> }[keyof Query]
-          >
+export type ExtractVariables<Query> = Query extends Variable<infer VType, infer VName>
+  ? { [key in VName]: GetVariableType<VType> }
+  : Query extends [infer Inputs, infer Outputs]
+  ? ExtractVariablesDeep<Inputs> & ExtractVariables<Outputs>
+  : Query extends string | number | boolean | Array<string | number | boolean>
+  ? // eslint-disable-next-line @typescript-eslint/ban-types
+    {}
+  : UnionToIntersection<{ [K in keyof Query]: WithOptionalNullables<ExtractVariables<Query[K]>> }[keyof Query]>;
 
-type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (k: infer I) => void
-  ? I
-  : never
+type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (k: infer I) => void ? I : never;
 
-export const START_VAR_NAME = `$ZEUS_VAR`
-export const GRAPHQL_TYPE_SEPARATOR = `__$GRAPHQL__`
+export const START_VAR_NAME = `$ZEUS_VAR`;
+export const GRAPHQL_TYPE_SEPARATOR = `__$GRAPHQL__`;
 
-export const $ = <Type extends GraphQLVariableType, Name extends string>(
-  name: Name,
-  graphqlType: Type,
-) => {
-  return (START_VAR_NAME + name + GRAPHQL_TYPE_SEPARATOR + graphqlType) as unknown as Variable<
-    Type,
-    Name
-  >
-}
+export const $ = <Type extends GraphQLVariableType, Name extends string>(name: Name, graphqlType: Type) => {
+  return (START_VAR_NAME + name + GRAPHQL_TYPE_SEPARATOR + graphqlType) as unknown as Variable<Type, Name>;
+};
 type ZEUS_INTERFACES = never
 export type ScalarCoders = {
-  DateTime?: ScalarResolver
-  ID?: ScalarResolver
+	DateTime?: ScalarResolver;
+	ID?: ScalarResolver;
 }
 type ZEUS_UNIONS = never
 
 export type ValueTypes = {
-  ["SuccessOutput"]: AliasType<{
-    success?: boolean | `@${string}`
-    __typename?: boolean | `@${string}`
-    ["...on SuccessOutput"]?: Omit<ValueTypes["SuccessOutput"], "...on SuccessOutput">
-  }>
-  ["LoginOutput"]: AliasType<{
-    accessToken?: boolean | `@${string}`
-    refreshToken?: boolean | `@${string}`
-    __typename?: boolean | `@${string}`
-    ["...on LoginOutput"]?: Omit<ValueTypes["LoginOutput"], "...on LoginOutput">
-  }>
-  ["UserModel"]: AliasType<{
-    id?: boolean | `@${string}`
-    name?: boolean | `@${string}`
-    username?: boolean | `@${string}`
-    active?: boolean | `@${string}`
-    role?: boolean | `@${string}`
-    createdDate?: boolean | `@${string}`
-    updatedDate?: boolean | `@${string}`
-    __typename?: boolean | `@${string}`
-    ["...on UserModel"]?: Omit<ValueTypes["UserModel"], "...on UserModel">
-  }>
-  ["Role"]: Role
-  /** A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format. */
-  ["DateTime"]: unknown
-  ["ReadUserOutput"]: AliasType<{
-    count?: boolean | `@${string}`
-    data?: ValueTypes["UserModel"]
-    __typename?: boolean | `@${string}`
-    ["...on ReadUserOutput"]?: Omit<ValueTypes["ReadUserOutput"], "...on ReadUserOutput">
-  }>
-  ["Query"]: AliasType<{
-    me?: ValueTypes["UserModel"]
-    readUsers?: [
-      {
-        where?: ValueTypes["ReadUserWhereInput"] | undefined | null | Variable<any, string>
-        pagination?: ValueTypes["PaginationData"] | undefined | null | Variable<any, string>
-        sortBy?: ValueTypes["SortByData"] | undefined | null | Variable<any, string>
-      },
-      ValueTypes["ReadUserOutput"],
-    ]
-    __typename?: boolean | `@${string}`
-    ["...on Query"]?: Omit<ValueTypes["Query"], "...on Query">
-  }>
-  ["ReadUserWhereInput"]: {
-    id?: ValueTypes["ID"] | undefined | null | Variable<any, string>
-    username?: string | undefined | null | Variable<any, string>
-    name?: string | undefined | null | Variable<any, string>
-    role?: ValueTypes["Role"] | undefined | null | Variable<any, string>
-    active?: boolean | undefined | null | Variable<any, string>
+    ["SuccessOutput"]: AliasType<{
+	success?:boolean | `@${string}`,
+		__typename?: boolean | `@${string}`,
+	['...on SuccessOutput']?: Omit<ValueTypes["SuccessOutput"], "...on SuccessOutput">
+}>;
+	["LoginOutput"]: AliasType<{
+	accessToken?:boolean | `@${string}`,
+	refreshToken?:boolean | `@${string}`,
+		__typename?: boolean | `@${string}`,
+	['...on LoginOutput']?: Omit<ValueTypes["LoginOutput"], "...on LoginOutput">
+}>;
+	["UserModel"]: AliasType<{
+	id?:boolean | `@${string}`,
+	name?:boolean | `@${string}`,
+	username?:boolean | `@${string}`,
+	active?:boolean | `@${string}`,
+	role?:boolean | `@${string}`,
+	createdDate?:boolean | `@${string}`,
+	updatedDate?:boolean | `@${string}`,
+		__typename?: boolean | `@${string}`,
+	['...on UserModel']?: Omit<ValueTypes["UserModel"], "...on UserModel">
+}>;
+	["Role"]:Role;
+	/** A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format. */
+["DateTime"]:unknown;
+	["ReadUserOutput"]: AliasType<{
+	count?:boolean | `@${string}`,
+	data?:ValueTypes["UserModel"],
+		__typename?: boolean | `@${string}`,
+	['...on ReadUserOutput']?: Omit<ValueTypes["ReadUserOutput"], "...on ReadUserOutput">
+}>;
+	["Query"]: AliasType<{
+	me?:ValueTypes["UserModel"],
+readUsers?: [{	where?: ValueTypes["ReadUserWhereInput"] | undefined | null | Variable<any, string>,	pagination?: ValueTypes["PaginationData"] | undefined | null | Variable<any, string>,	sortBy?: ValueTypes["SortByData"] | undefined | null | Variable<any, string>},ValueTypes["ReadUserOutput"]],
+		__typename?: boolean | `@${string}`,
+	['...on Query']?: Omit<ValueTypes["Query"], "...on Query">
+}>;
+	["ReadUserWhereInput"]: {
+	id?: ValueTypes["ID"] | undefined | null | Variable<any, string>,
+	username?: string | undefined | null | Variable<any, string>,
+	name?: string | undefined | null | Variable<any, string>,
+	role?: ValueTypes["Role"] | undefined | null | Variable<any, string>,
+	active?: boolean | undefined | null | Variable<any, string>
+};
+	["PaginationData"]: {
+	take?: number | undefined | null | Variable<any, string>,
+	skip?: number | undefined | null | Variable<any, string>
+};
+	["SortByData"]: {
+	field?: string | undefined | null | Variable<any, string>,
+	descending?: boolean | undefined | null | Variable<any, string>
+};
+	["Mutation"]: AliasType<{
+logIn?: [{	data: ValueTypes["LoginInput"] | Variable<any, string>},ValueTypes["LoginOutput"]],
+register?: [{	data: ValueTypes["RegisterInput"] | Variable<any, string>},ValueTypes["LoginOutput"]],
+	logout?:ValueTypes["SuccessOutput"],
+changePassword?: [{	data: ValueTypes["ChangePasswordInput"] | Variable<any, string>,	where: ValueTypes["IdInput"] | Variable<any, string>},ValueTypes["SuccessOutput"]],
+changeMyPassword?: [{	data: ValueTypes["ChangeMyPasswordInput"] | Variable<any, string>},ValueTypes["SuccessOutput"]],
+refreshToken?: [{	data: ValueTypes["RefreshTokenInput"] | Variable<any, string>},ValueTypes["LoginOutput"]],
+updateMe?: [{	data: ValueTypes["UpdateMeInput"] | Variable<any, string>},ValueTypes["UserModel"]],
+createUser?: [{	data: ValueTypes["CreateUserInput"] | Variable<any, string>},ValueTypes["UserModel"]],
+updateUser?: [{	data: ValueTypes["UpdateUserDataInput"] | Variable<any, string>,	where: ValueTypes["IdInput"] | Variable<any, string>},ValueTypes["UserModel"]],
+deleteUser?: [{	where: ValueTypes["IdInput"] | Variable<any, string>},ValueTypes["SuccessOutput"]],
+		__typename?: boolean | `@${string}`,
+	['...on Mutation']?: Omit<ValueTypes["Mutation"], "...on Mutation">
+}>;
+	["LoginInput"]: {
+	username: string | Variable<any, string>,
+	password: string | Variable<any, string>
+};
+	["RegisterInput"]: {
+	name: string | Variable<any, string>,
+	username: string | Variable<any, string>,
+	password: string | Variable<any, string>
+};
+	["ChangePasswordInput"]: {
+	newPassword: string | Variable<any, string>
+};
+	["IdInput"]: {
+	id: string | Variable<any, string>
+};
+	["ChangeMyPasswordInput"]: {
+	currentPassword: string | Variable<any, string>,
+	newPassword: string | Variable<any, string>
+};
+	["RefreshTokenInput"]: {
+	refreshToken: string | Variable<any, string>
+};
+	["UpdateMeInput"]: {
+	name?: string | undefined | null | Variable<any, string>,
+	username?: string | undefined | null | Variable<any, string>
+};
+	["CreateUserInput"]: {
+	name: string | Variable<any, string>,
+	username: string | Variable<any, string>,
+	password: string | Variable<any, string>,
+	role: ValueTypes["Role"] | Variable<any, string>
+};
+	["UpdateUserDataInput"]: {
+	username?: string | undefined | null | Variable<any, string>,
+	active?: boolean | undefined | null | Variable<any, string>,
+	role?: ValueTypes["Role"] | undefined | null | Variable<any, string>,
+	name?: string | undefined | null | Variable<any, string>
+};
+	["ID"]:unknown
   }
-  ["PaginationData"]: {
-    take?: number | undefined | null | Variable<any, string>
-    skip?: number | undefined | null | Variable<any, string>
-  }
-  ["SortByData"]: {
-    field?: string | undefined | null | Variable<any, string>
-    descending?: boolean | undefined | null | Variable<any, string>
-  }
-  ["Mutation"]: AliasType<{
-    logIn?: [{ data: ValueTypes["LoginInput"] | Variable<any, string> }, ValueTypes["LoginOutput"]]
-    register?: [
-      { data: ValueTypes["RegisterInput"] | Variable<any, string> },
-      ValueTypes["LoginOutput"],
-    ]
-    logout?: ValueTypes["SuccessOutput"]
-    changePassword?: [
-      {
-        data: ValueTypes["ChangePasswordInput"] | Variable<any, string>
-        where: ValueTypes["IdInput"] | Variable<any, string>
-      },
-      ValueTypes["SuccessOutput"],
-    ]
-    changeMyPassword?: [
-      { data: ValueTypes["ChangeMyPasswordInput"] | Variable<any, string> },
-      ValueTypes["SuccessOutput"],
-    ]
-    refreshToken?: [
-      { data: ValueTypes["RefreshTokenInput"] | Variable<any, string> },
-      ValueTypes["LoginOutput"],
-    ]
-    updateMe?: [
-      { data: ValueTypes["UpdateMeInput"] | Variable<any, string> },
-      ValueTypes["UserModel"],
-    ]
-    createUser?: [
-      { data: ValueTypes["CreateUserInput"] | Variable<any, string> },
-      ValueTypes["UserModel"],
-    ]
-    updateUser?: [
-      {
-        data: ValueTypes["UpdateUserDataInput"] | Variable<any, string>
-        where: ValueTypes["IdInput"] | Variable<any, string>
-      },
-      ValueTypes["UserModel"],
-    ]
-    deleteUser?: [
-      { where: ValueTypes["IdInput"] | Variable<any, string> },
-      ValueTypes["SuccessOutput"],
-    ]
-    __typename?: boolean | `@${string}`
-    ["...on Mutation"]?: Omit<ValueTypes["Mutation"], "...on Mutation">
-  }>
-  ["LoginInput"]: {
-    username: string | Variable<any, string>
-    password: string | Variable<any, string>
-  }
-  ["RegisterInput"]: {
-    name: string | Variable<any, string>
-    username: string | Variable<any, string>
-    password: string | Variable<any, string>
-  }
-  ["ChangePasswordInput"]: {
-    newPassword: string | Variable<any, string>
-  }
-  ["IdInput"]: {
-    id: string | Variable<any, string>
-  }
-  ["ChangeMyPasswordInput"]: {
-    currentPassword: string | Variable<any, string>
-    newPassword: string | Variable<any, string>
-  }
-  ["RefreshTokenInput"]: {
-    refreshToken: string | Variable<any, string>
-  }
-  ["UpdateMeInput"]: {
-    name?: string | undefined | null | Variable<any, string>
-    username?: string | undefined | null | Variable<any, string>
-  }
-  ["CreateUserInput"]: {
-    name: string | Variable<any, string>
-    username: string | Variable<any, string>
-    password: string | Variable<any, string>
-    role: ValueTypes["Role"] | Variable<any, string>
-  }
-  ["UpdateUserDataInput"]: {
-    username?: string | undefined | null | Variable<any, string>
-    active?: boolean | undefined | null | Variable<any, string>
-    role?: ValueTypes["Role"] | undefined | null | Variable<any, string>
-    name?: string | undefined | null | Variable<any, string>
-  }
-  ["ID"]: unknown
-}
 
 export type ResolverInputTypes = {
-  ["SuccessOutput"]: AliasType<{
-    success?: boolean | `@${string}`
-    __typename?: boolean | `@${string}`
-  }>
-  ["LoginOutput"]: AliasType<{
-    accessToken?: boolean | `@${string}`
-    refreshToken?: boolean | `@${string}`
-    __typename?: boolean | `@${string}`
-  }>
-  ["UserModel"]: AliasType<{
-    id?: boolean | `@${string}`
-    name?: boolean | `@${string}`
-    username?: boolean | `@${string}`
-    active?: boolean | `@${string}`
-    role?: boolean | `@${string}`
-    createdDate?: boolean | `@${string}`
-    updatedDate?: boolean | `@${string}`
-    __typename?: boolean | `@${string}`
-  }>
-  ["Role"]: Role
-  /** A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format. */
-  ["DateTime"]: unknown
-  ["ReadUserOutput"]: AliasType<{
-    count?: boolean | `@${string}`
-    data?: ResolverInputTypes["UserModel"]
-    __typename?: boolean | `@${string}`
-  }>
-  ["Query"]: AliasType<{
-    me?: ResolverInputTypes["UserModel"]
-    readUsers?: [
-      {
-        where?: ResolverInputTypes["ReadUserWhereInput"] | undefined | null
-        pagination?: ResolverInputTypes["PaginationData"] | undefined | null
-        sortBy?: ResolverInputTypes["SortByData"] | undefined | null
-      },
-      ResolverInputTypes["ReadUserOutput"],
-    ]
-    __typename?: boolean | `@${string}`
-  }>
-  ["ReadUserWhereInput"]: {
-    id?: ResolverInputTypes["ID"] | undefined | null
-    username?: string | undefined | null
-    name?: string | undefined | null
-    role?: ResolverInputTypes["Role"] | undefined | null
-    active?: boolean | undefined | null
+    ["SuccessOutput"]: AliasType<{
+	success?:boolean | `@${string}`,
+		__typename?: boolean | `@${string}`
+}>;
+	["LoginOutput"]: AliasType<{
+	accessToken?:boolean | `@${string}`,
+	refreshToken?:boolean | `@${string}`,
+		__typename?: boolean | `@${string}`
+}>;
+	["UserModel"]: AliasType<{
+	id?:boolean | `@${string}`,
+	name?:boolean | `@${string}`,
+	username?:boolean | `@${string}`,
+	active?:boolean | `@${string}`,
+	role?:boolean | `@${string}`,
+	createdDate?:boolean | `@${string}`,
+	updatedDate?:boolean | `@${string}`,
+		__typename?: boolean | `@${string}`
+}>;
+	["Role"]:Role;
+	/** A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format. */
+["DateTime"]:unknown;
+	["ReadUserOutput"]: AliasType<{
+	count?:boolean | `@${string}`,
+	data?:ResolverInputTypes["UserModel"],
+		__typename?: boolean | `@${string}`
+}>;
+	["Query"]: AliasType<{
+	me?:ResolverInputTypes["UserModel"],
+readUsers?: [{	where?: ResolverInputTypes["ReadUserWhereInput"] | undefined | null,	pagination?: ResolverInputTypes["PaginationData"] | undefined | null,	sortBy?: ResolverInputTypes["SortByData"] | undefined | null},ResolverInputTypes["ReadUserOutput"]],
+		__typename?: boolean | `@${string}`
+}>;
+	["ReadUserWhereInput"]: {
+	id?: ResolverInputTypes["ID"] | undefined | null,
+	username?: string | undefined | null,
+	name?: string | undefined | null,
+	role?: ResolverInputTypes["Role"] | undefined | null,
+	active?: boolean | undefined | null
+};
+	["PaginationData"]: {
+	take?: number | undefined | null,
+	skip?: number | undefined | null
+};
+	["SortByData"]: {
+	field?: string | undefined | null,
+	descending?: boolean | undefined | null
+};
+	["Mutation"]: AliasType<{
+logIn?: [{	data: ResolverInputTypes["LoginInput"]},ResolverInputTypes["LoginOutput"]],
+register?: [{	data: ResolverInputTypes["RegisterInput"]},ResolverInputTypes["LoginOutput"]],
+	logout?:ResolverInputTypes["SuccessOutput"],
+changePassword?: [{	data: ResolverInputTypes["ChangePasswordInput"],	where: ResolverInputTypes["IdInput"]},ResolverInputTypes["SuccessOutput"]],
+changeMyPassword?: [{	data: ResolverInputTypes["ChangeMyPasswordInput"]},ResolverInputTypes["SuccessOutput"]],
+refreshToken?: [{	data: ResolverInputTypes["RefreshTokenInput"]},ResolverInputTypes["LoginOutput"]],
+updateMe?: [{	data: ResolverInputTypes["UpdateMeInput"]},ResolverInputTypes["UserModel"]],
+createUser?: [{	data: ResolverInputTypes["CreateUserInput"]},ResolverInputTypes["UserModel"]],
+updateUser?: [{	data: ResolverInputTypes["UpdateUserDataInput"],	where: ResolverInputTypes["IdInput"]},ResolverInputTypes["UserModel"]],
+deleteUser?: [{	where: ResolverInputTypes["IdInput"]},ResolverInputTypes["SuccessOutput"]],
+		__typename?: boolean | `@${string}`
+}>;
+	["LoginInput"]: {
+	username: string,
+	password: string
+};
+	["RegisterInput"]: {
+	name: string,
+	username: string,
+	password: string
+};
+	["ChangePasswordInput"]: {
+	newPassword: string
+};
+	["IdInput"]: {
+	id: string
+};
+	["ChangeMyPasswordInput"]: {
+	currentPassword: string,
+	newPassword: string
+};
+	["RefreshTokenInput"]: {
+	refreshToken: string
+};
+	["UpdateMeInput"]: {
+	name?: string | undefined | null,
+	username?: string | undefined | null
+};
+	["CreateUserInput"]: {
+	name: string,
+	username: string,
+	password: string,
+	role: ResolverInputTypes["Role"]
+};
+	["UpdateUserDataInput"]: {
+	username?: string | undefined | null,
+	active?: boolean | undefined | null,
+	role?: ResolverInputTypes["Role"] | undefined | null,
+	name?: string | undefined | null
+};
+	["schema"]: AliasType<{
+	query?:ResolverInputTypes["Query"],
+	mutation?:ResolverInputTypes["Mutation"],
+		__typename?: boolean | `@${string}`
+}>;
+	["ID"]:unknown
   }
-  ["PaginationData"]: {
-    take?: number | undefined | null
-    skip?: number | undefined | null
-  }
-  ["SortByData"]: {
-    field?: string | undefined | null
-    descending?: boolean | undefined | null
-  }
-  ["Mutation"]: AliasType<{
-    logIn?: [{ data: ResolverInputTypes["LoginInput"] }, ResolverInputTypes["LoginOutput"]]
-    register?: [{ data: ResolverInputTypes["RegisterInput"] }, ResolverInputTypes["LoginOutput"]]
-    logout?: ResolverInputTypes["SuccessOutput"]
-    changePassword?: [
-      { data: ResolverInputTypes["ChangePasswordInput"]; where: ResolverInputTypes["IdInput"] },
-      ResolverInputTypes["SuccessOutput"],
-    ]
-    changeMyPassword?: [
-      { data: ResolverInputTypes["ChangeMyPasswordInput"] },
-      ResolverInputTypes["SuccessOutput"],
-    ]
-    refreshToken?: [
-      { data: ResolverInputTypes["RefreshTokenInput"] },
-      ResolverInputTypes["LoginOutput"],
-    ]
-    updateMe?: [{ data: ResolverInputTypes["UpdateMeInput"] }, ResolverInputTypes["UserModel"]]
-    createUser?: [{ data: ResolverInputTypes["CreateUserInput"] }, ResolverInputTypes["UserModel"]]
-    updateUser?: [
-      { data: ResolverInputTypes["UpdateUserDataInput"]; where: ResolverInputTypes["IdInput"] },
-      ResolverInputTypes["UserModel"],
-    ]
-    deleteUser?: [{ where: ResolverInputTypes["IdInput"] }, ResolverInputTypes["SuccessOutput"]]
-    __typename?: boolean | `@${string}`
-  }>
-  ["LoginInput"]: {
-    username: string
-    password: string
-  }
-  ["RegisterInput"]: {
-    name: string
-    username: string
-    password: string
-  }
-  ["ChangePasswordInput"]: {
-    newPassword: string
-  }
-  ["IdInput"]: {
-    id: string
-  }
-  ["ChangeMyPasswordInput"]: {
-    currentPassword: string
-    newPassword: string
-  }
-  ["RefreshTokenInput"]: {
-    refreshToken: string
-  }
-  ["UpdateMeInput"]: {
-    name?: string | undefined | null
-    username?: string | undefined | null
-  }
-  ["CreateUserInput"]: {
-    name: string
-    username: string
-    password: string
-    role: ResolverInputTypes["Role"]
-  }
-  ["UpdateUserDataInput"]: {
-    username?: string | undefined | null
-    active?: boolean | undefined | null
-    role?: ResolverInputTypes["Role"] | undefined | null
-    name?: string | undefined | null
-  }
-  ["schema"]: AliasType<{
-    query?: ResolverInputTypes["Query"]
-    mutation?: ResolverInputTypes["Mutation"]
-    __typename?: boolean | `@${string}`
-  }>
-  ["ID"]: unknown
-}
 
 export type ModelTypes = {
-  ["SuccessOutput"]: {
-    success: boolean
-  }
-  ["LoginOutput"]: {
-    accessToken: string
-    refreshToken: string
-  }
-  ["UserModel"]: {
-    id: ModelTypes["ID"]
-    name: string
-    username: string
-    active: boolean
-    role: ModelTypes["Role"]
-    createdDate: ModelTypes["DateTime"]
-    updatedDate: ModelTypes["DateTime"]
-  }
-  ["Role"]: Role
-  /** A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format. */
-  ["DateTime"]: any
-  ["ReadUserOutput"]: {
-    count: number
-    data: Array<ModelTypes["UserModel"]>
-  }
-  ["Query"]: {
-    me: ModelTypes["UserModel"]
-    readUsers: ModelTypes["ReadUserOutput"]
-  }
-  ["ReadUserWhereInput"]: {
-    id?: ModelTypes["ID"] | undefined | null
-    username?: string | undefined | null
-    name?: string | undefined | null
-    role?: ModelTypes["Role"] | undefined | null
-    active?: boolean | undefined | null
-  }
-  ["PaginationData"]: {
-    take?: number | undefined | null
-    skip?: number | undefined | null
-  }
-  ["SortByData"]: {
-    field?: string | undefined | null
-    descending?: boolean | undefined | null
-  }
-  ["Mutation"]: {
-    logIn: ModelTypes["LoginOutput"]
-    register: ModelTypes["LoginOutput"]
-    logout: ModelTypes["SuccessOutput"]
-    changePassword: ModelTypes["SuccessOutput"]
-    changeMyPassword: ModelTypes["SuccessOutput"]
-    refreshToken: ModelTypes["LoginOutput"]
-    updateMe: ModelTypes["UserModel"]
-    createUser: ModelTypes["UserModel"]
-    updateUser: ModelTypes["UserModel"]
-    deleteUser: ModelTypes["SuccessOutput"]
-  }
-  ["LoginInput"]: {
-    username: string
-    password: string
-  }
-  ["RegisterInput"]: {
-    name: string
-    username: string
-    password: string
-  }
-  ["ChangePasswordInput"]: {
-    newPassword: string
-  }
-  ["IdInput"]: {
-    id: string
-  }
-  ["ChangeMyPasswordInput"]: {
-    currentPassword: string
-    newPassword: string
-  }
-  ["RefreshTokenInput"]: {
-    refreshToken: string
-  }
-  ["UpdateMeInput"]: {
-    name?: string | undefined | null
-    username?: string | undefined | null
-  }
-  ["CreateUserInput"]: {
-    name: string
-    username: string
-    password: string
-    role: ModelTypes["Role"]
-  }
-  ["UpdateUserDataInput"]: {
-    username?: string | undefined | null
-    active?: boolean | undefined | null
-    role?: ModelTypes["Role"] | undefined | null
-    name?: string | undefined | null
-  }
-  ["schema"]: {
-    query?: ModelTypes["Query"] | undefined | null
-    mutation?: ModelTypes["Mutation"] | undefined | null
-  }
-  ["ID"]: any
-}
+    ["SuccessOutput"]: {
+		success: boolean
+};
+	["LoginOutput"]: {
+		accessToken: string,
+	refreshToken: string
+};
+	["UserModel"]: {
+		id: ModelTypes["ID"],
+	name: string,
+	username: string,
+	active: boolean,
+	role: ModelTypes["Role"],
+	createdDate: ModelTypes["DateTime"],
+	updatedDate: ModelTypes["DateTime"]
+};
+	["Role"]:Role;
+	/** A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format. */
+["DateTime"]:any;
+	["ReadUserOutput"]: {
+		count: number,
+	data: Array<ModelTypes["UserModel"]>
+};
+	["Query"]: {
+		me: ModelTypes["UserModel"],
+	readUsers: ModelTypes["ReadUserOutput"]
+};
+	["ReadUserWhereInput"]: {
+	id?: ModelTypes["ID"] | undefined | null,
+	username?: string | undefined | null,
+	name?: string | undefined | null,
+	role?: ModelTypes["Role"] | undefined | null,
+	active?: boolean | undefined | null
+};
+	["PaginationData"]: {
+	take?: number | undefined | null,
+	skip?: number | undefined | null
+};
+	["SortByData"]: {
+	field?: string | undefined | null,
+	descending?: boolean | undefined | null
+};
+	["Mutation"]: {
+		logIn: ModelTypes["LoginOutput"],
+	register: ModelTypes["LoginOutput"],
+	logout: ModelTypes["SuccessOutput"],
+	changePassword: ModelTypes["SuccessOutput"],
+	changeMyPassword: ModelTypes["SuccessOutput"],
+	refreshToken: ModelTypes["LoginOutput"],
+	updateMe: ModelTypes["UserModel"],
+	createUser: ModelTypes["UserModel"],
+	updateUser: ModelTypes["UserModel"],
+	deleteUser: ModelTypes["SuccessOutput"]
+};
+	["LoginInput"]: {
+	username: string,
+	password: string
+};
+	["RegisterInput"]: {
+	name: string,
+	username: string,
+	password: string
+};
+	["ChangePasswordInput"]: {
+	newPassword: string
+};
+	["IdInput"]: {
+	id: string
+};
+	["ChangeMyPasswordInput"]: {
+	currentPassword: string,
+	newPassword: string
+};
+	["RefreshTokenInput"]: {
+	refreshToken: string
+};
+	["UpdateMeInput"]: {
+	name?: string | undefined | null,
+	username?: string | undefined | null
+};
+	["CreateUserInput"]: {
+	name: string,
+	username: string,
+	password: string,
+	role: ModelTypes["Role"]
+};
+	["UpdateUserDataInput"]: {
+	username?: string | undefined | null,
+	active?: boolean | undefined | null,
+	role?: ModelTypes["Role"] | undefined | null,
+	name?: string | undefined | null
+};
+	["schema"]: {
+	query?: ModelTypes["Query"] | undefined | null,
+	mutation?: ModelTypes["Mutation"] | undefined | null
+};
+	["ID"]:any
+    }
 
 export type GraphQLTypes = {
-  // ------------------------------------------------------;
-  // THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY);
-  // ------------------------------------------------------;
-  ["SuccessOutput"]: {
-    __typename: "SuccessOutput"
-    success: boolean
-    ["...on SuccessOutput"]: Omit<GraphQLTypes["SuccessOutput"], "...on SuccessOutput">
-  }
-  ["LoginOutput"]: {
-    __typename: "LoginOutput"
-    accessToken: string
-    refreshToken: string
-    ["...on LoginOutput"]: Omit<GraphQLTypes["LoginOutput"], "...on LoginOutput">
-  }
-  ["UserModel"]: {
-    __typename: "UserModel"
-    id: GraphQLTypes["ID"]
-    name: string
-    username: string
-    active: boolean
-    role: GraphQLTypes["Role"]
-    createdDate: GraphQLTypes["DateTime"]
-    updatedDate: GraphQLTypes["DateTime"]
-    ["...on UserModel"]: Omit<GraphQLTypes["UserModel"], "...on UserModel">
-  }
-  ["Role"]: Role
-  /** A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format. */
-  ["DateTime"]: "scalar" & { name: "DateTime" }
-  ["ReadUserOutput"]: {
-    __typename: "ReadUserOutput"
-    count: number
-    data: Array<GraphQLTypes["UserModel"]>
-    ["...on ReadUserOutput"]: Omit<GraphQLTypes["ReadUserOutput"], "...on ReadUserOutput">
-  }
-  ["Query"]: {
-    __typename: "Query"
-    me: GraphQLTypes["UserModel"]
-    readUsers: GraphQLTypes["ReadUserOutput"]
-    ["...on Query"]: Omit<GraphQLTypes["Query"], "...on Query">
-  }
-  ["ReadUserWhereInput"]: {
-    id?: GraphQLTypes["ID"] | undefined | null
-    username?: string | undefined | null
-    name?: string | undefined | null
-    role?: GraphQLTypes["Role"] | undefined | null
-    active?: boolean | undefined | null
-  }
-  ["PaginationData"]: {
-    take?: number | undefined | null
-    skip?: number | undefined | null
-  }
-  ["SortByData"]: {
-    field?: string | undefined | null
-    descending?: boolean | undefined | null
-  }
-  ["Mutation"]: {
-    __typename: "Mutation"
-    logIn: GraphQLTypes["LoginOutput"]
-    register: GraphQLTypes["LoginOutput"]
-    logout: GraphQLTypes["SuccessOutput"]
-    changePassword: GraphQLTypes["SuccessOutput"]
-    changeMyPassword: GraphQLTypes["SuccessOutput"]
-    refreshToken: GraphQLTypes["LoginOutput"]
-    updateMe: GraphQLTypes["UserModel"]
-    createUser: GraphQLTypes["UserModel"]
-    updateUser: GraphQLTypes["UserModel"]
-    deleteUser: GraphQLTypes["SuccessOutput"]
-    ["...on Mutation"]: Omit<GraphQLTypes["Mutation"], "...on Mutation">
-  }
-  ["LoginInput"]: {
-    username: string
-    password: string
-  }
-  ["RegisterInput"]: {
-    name: string
-    username: string
-    password: string
-  }
-  ["ChangePasswordInput"]: {
-    newPassword: string
-  }
-  ["IdInput"]: {
-    id: string
-  }
-  ["ChangeMyPasswordInput"]: {
-    currentPassword: string
-    newPassword: string
-  }
-  ["RefreshTokenInput"]: {
-    refreshToken: string
-  }
-  ["UpdateMeInput"]: {
-    name?: string | undefined | null
-    username?: string | undefined | null
-  }
-  ["CreateUserInput"]: {
-    name: string
-    username: string
-    password: string
-    role: GraphQLTypes["Role"]
-  }
-  ["UpdateUserDataInput"]: {
-    username?: string | undefined | null
-    active?: boolean | undefined | null
-    role?: GraphQLTypes["Role"] | undefined | null
-    name?: string | undefined | null
-  }
-  ["ID"]: "scalar" & { name: "ID" }
-}
+    // ------------------------------------------------------;
+	// THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY);
+	// ------------------------------------------------------;
+	["SuccessOutput"]: {
+	__typename: "SuccessOutput",
+	success: boolean,
+	['...on SuccessOutput']: Omit<GraphQLTypes["SuccessOutput"], "...on SuccessOutput">
+};
+	["LoginOutput"]: {
+	__typename: "LoginOutput",
+	accessToken: string,
+	refreshToken: string,
+	['...on LoginOutput']: Omit<GraphQLTypes["LoginOutput"], "...on LoginOutput">
+};
+	["UserModel"]: {
+	__typename: "UserModel",
+	id: GraphQLTypes["ID"],
+	name: string,
+	username: string,
+	active: boolean,
+	role: GraphQLTypes["Role"],
+	createdDate: GraphQLTypes["DateTime"],
+	updatedDate: GraphQLTypes["DateTime"],
+	['...on UserModel']: Omit<GraphQLTypes["UserModel"], "...on UserModel">
+};
+	["Role"]: Role;
+	/** A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format. */
+["DateTime"]: "scalar" & { name: "DateTime" };
+	["ReadUserOutput"]: {
+	__typename: "ReadUserOutput",
+	count: number,
+	data: Array<GraphQLTypes["UserModel"]>,
+	['...on ReadUserOutput']: Omit<GraphQLTypes["ReadUserOutput"], "...on ReadUserOutput">
+};
+	["Query"]: {
+	__typename: "Query",
+	me: GraphQLTypes["UserModel"],
+	readUsers: GraphQLTypes["ReadUserOutput"],
+	['...on Query']: Omit<GraphQLTypes["Query"], "...on Query">
+};
+	["ReadUserWhereInput"]: {
+		id?: GraphQLTypes["ID"] | undefined | null,
+	username?: string | undefined | null,
+	name?: string | undefined | null,
+	role?: GraphQLTypes["Role"] | undefined | null,
+	active?: boolean | undefined | null
+};
+	["PaginationData"]: {
+		take?: number | undefined | null,
+	skip?: number | undefined | null
+};
+	["SortByData"]: {
+		field?: string | undefined | null,
+	descending?: boolean | undefined | null
+};
+	["Mutation"]: {
+	__typename: "Mutation",
+	logIn: GraphQLTypes["LoginOutput"],
+	register: GraphQLTypes["LoginOutput"],
+	logout: GraphQLTypes["SuccessOutput"],
+	changePassword: GraphQLTypes["SuccessOutput"],
+	changeMyPassword: GraphQLTypes["SuccessOutput"],
+	refreshToken: GraphQLTypes["LoginOutput"],
+	updateMe: GraphQLTypes["UserModel"],
+	createUser: GraphQLTypes["UserModel"],
+	updateUser: GraphQLTypes["UserModel"],
+	deleteUser: GraphQLTypes["SuccessOutput"],
+	['...on Mutation']: Omit<GraphQLTypes["Mutation"], "...on Mutation">
+};
+	["LoginInput"]: {
+		username: string,
+	password: string
+};
+	["RegisterInput"]: {
+		name: string,
+	username: string,
+	password: string
+};
+	["ChangePasswordInput"]: {
+		newPassword: string
+};
+	["IdInput"]: {
+		id: string
+};
+	["ChangeMyPasswordInput"]: {
+		currentPassword: string,
+	newPassword: string
+};
+	["RefreshTokenInput"]: {
+		refreshToken: string
+};
+	["UpdateMeInput"]: {
+		name?: string | undefined | null,
+	username?: string | undefined | null
+};
+	["CreateUserInput"]: {
+		name: string,
+	username: string,
+	password: string,
+	role: GraphQLTypes["Role"]
+};
+	["UpdateUserDataInput"]: {
+		username?: string | undefined | null,
+	active?: boolean | undefined | null,
+	role?: GraphQLTypes["Role"] | undefined | null,
+	name?: string | undefined | null
+};
+	["ID"]: "scalar" & { name: "ID" }
+    }
 export enum Role {
-  Admin = "Admin",
-  Member = "Member",
+	Admin = "Admin",
+	Member = "Member"
 }
 
 type ZEUS_VARIABLES = {
-  ["Role"]: ValueTypes["Role"]
-  ["DateTime"]: ValueTypes["DateTime"]
-  ["ReadUserWhereInput"]: ValueTypes["ReadUserWhereInput"]
-  ["PaginationData"]: ValueTypes["PaginationData"]
-  ["SortByData"]: ValueTypes["SortByData"]
-  ["LoginInput"]: ValueTypes["LoginInput"]
-  ["RegisterInput"]: ValueTypes["RegisterInput"]
-  ["ChangePasswordInput"]: ValueTypes["ChangePasswordInput"]
-  ["IdInput"]: ValueTypes["IdInput"]
-  ["ChangeMyPasswordInput"]: ValueTypes["ChangeMyPasswordInput"]
-  ["RefreshTokenInput"]: ValueTypes["RefreshTokenInput"]
-  ["UpdateMeInput"]: ValueTypes["UpdateMeInput"]
-  ["CreateUserInput"]: ValueTypes["CreateUserInput"]
-  ["UpdateUserDataInput"]: ValueTypes["UpdateUserDataInput"]
-  ["ID"]: ValueTypes["ID"]
+	["Role"]: ValueTypes["Role"];
+	["DateTime"]: ValueTypes["DateTime"];
+	["ReadUserWhereInput"]: ValueTypes["ReadUserWhereInput"];
+	["PaginationData"]: ValueTypes["PaginationData"];
+	["SortByData"]: ValueTypes["SortByData"];
+	["LoginInput"]: ValueTypes["LoginInput"];
+	["RegisterInput"]: ValueTypes["RegisterInput"];
+	["ChangePasswordInput"]: ValueTypes["ChangePasswordInput"];
+	["IdInput"]: ValueTypes["IdInput"];
+	["ChangeMyPasswordInput"]: ValueTypes["ChangeMyPasswordInput"];
+	["RefreshTokenInput"]: ValueTypes["RefreshTokenInput"];
+	["UpdateMeInput"]: ValueTypes["UpdateMeInput"];
+	["CreateUserInput"]: ValueTypes["CreateUserInput"];
+	["UpdateUserDataInput"]: ValueTypes["UpdateUserDataInput"];
+	["ID"]: ValueTypes["ID"];
 }
