@@ -25,7 +25,10 @@ for (const name of readdirSync(outputDir)) {
   if (!name.endsWith(".ts")) continue
   const filePath = join(outputDir, name)
   const raw = readFileSync(filePath, "utf8")
-  const normalized = raw.replace(/\r\n/g, "\n").replace(/\r/g, "\n")
+  let normalized = raw.replace(/\r\n/g, "\n").replace(/\r/g, "\n")
+  if (!normalized.endsWith("\n")) {
+    normalized += "\n"
+  }
   if (normalized !== raw) {
     writeFileSync(filePath, normalized, "utf8")
   }
