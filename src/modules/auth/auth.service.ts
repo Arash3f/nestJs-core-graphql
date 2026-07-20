@@ -37,20 +37,19 @@ export class AuthService {
    * Takes the user's information and after validate the information returns the user's jwt Token
    *
    * @param data - Necessary data for login user
-   * @param deviceId - Fingerprint of the calling device; the issued tokens are bound to it.
    *
    * @returns User's jwt Token
    *
    * @throws {AppException} AuthErrors.IncorrectUsernameOrPassword
    * @throws {AppException} AuthErrors.InactiveUser - When the account has been deactivated/soft-deleted.
    */
-  async logIn(data: LoginInput, deviceId: string): Promise<LoginOutput> {
+  async logIn(data: LoginInput): Promise<LoginOutput> {
     const { password, username } = data
 
     const user = await this.verifyUserExistenceByUsername(username)
     if (!user.active) throw new AppException(AuthErrors.InactiveUser)
     await this.verifyUserPassword(user.passwordHash, password)
-    const tokens = await this.generateToken(user.username, user.id, deviceId)
+    const tokens = await this.generateToken(user.username, user.id)
     await this.storeRefreshToken(user.id, tokens.refreshToken)
 
     return tokens
@@ -70,13 +69,12 @@ export class AuthService {
    * `AuthService` free of a circular dependency on `UserService`.
    *
    * @param data - Name, username and password for the new account.
-   * @param deviceId - Fingerprint of the calling device; the issued tokens are bound to it.
    *
    * @returns The new user's jwt tokens (already logged in).
    *
    * @throws {AppException} UserErrors.UsernameIsDuplicated
    */
-  async register(data: RegisterInput, deviceId: string): Promise<LoginOutput> {
+  async register(data: RegisterInput): Promise<LoginOutput> {
     const { name, username, password } = data
     const hashedPassword = await this.generatedHashedPassword(password)
 
@@ -101,7 +99,7 @@ export class AuthService {
       })
     }
 
-    return await this.logIn({ username, password }, deviceId)
+    return await this.logIn({ username, password })
   }
 
   /**
@@ -172,15 +170,13 @@ export class AuthService {
    * refresh user token with refreshToken and get new tokens
    *
    * @param input - Necessary data for update user's token
-   * @param deviceId - Fingerprint of the calling device; must match the device the session was bound to.
    *
    * @returns New user tokens
    *
    * @throws {AppException} AuthErrors.UserIsNotAuthorized
-   * @throws {AppException} AuthErrors.DeviceMismatch - When the request comes from a different device than the one the session was issued to.
    * @throws {AppException} AuthErrors.InValidRefreshToken
    */
-  async refreshToken(input: RefreshTokenInput, deviceId: string): Promise<LoginOutput> {
+  async refreshToken(input: RefreshTokenInput): Promise<LoginOutput> {
     // `verify` (not `decode`) so an expired or tampered refresh token is rejected
     // here at the JWT layer instead of slipping through to the hash comparison below.
     let decodeToken: JwtPayload
@@ -190,23 +186,17 @@ export class AuthService {
       throw new AppException(AuthErrors.InValidRefreshToken)
     }
 
-    if (decodeToken.deviceId !== deviceId) {
-      throw new AppException(AuthErrors.DeviceMismatch)
-    }
-
     const user = await this.prisma.users.findUnique({ where: { id: decodeToken.id } })
     if (!user || !user.active || !user.refreshTokenHash) {
       throw new AppException(AuthErrors.UserIsNotAuthorized)
     }
-
-    // Device binding: the request must come from the same device the refresh token was issued to.
 
     const isValid = await this.validateRefreshToken(user.refreshTokenHash, input.refreshToken)
     if (!isValid) {
       throw new AppException(AuthErrors.InValidRefreshToken)
     }
 
-    const tokens = await this.generateToken(user.username, user.id, deviceId)
+    const tokens = await this.generateToken(user.username, user.id)
     await this.storeRefreshToken(user.id, tokens.refreshToken)
 
     return tokens
@@ -249,15 +239,13 @@ export class AuthService {
    *
    * @param username user username
    * @param userId user id
-   * @param deviceId device fingerprint the tokens are bound to
    *
    * @returns user tokens
    */
-  private async generateToken(username: string, userId: string, deviceId: string): Promise<Tokens> {
+  private async generateToken(username: string, userId: string): Promise<Tokens> {
     const payload: JwtPayload = {
       username: username.toLowerCase(),
       id: userId,
-      deviceId,
     }
 
     const accessToken = await this.jwt.signAsync(payload)

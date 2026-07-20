@@ -1,7 +1,7 @@
 services:
   postgres:
     image: postgres:15
-    container_name: nest-rest-core-dev-postgres
+    container_name: nest-graphql-core-dev-postgres
     ports:
       - 5435:5432
     env_file:
@@ -18,7 +18,7 @@ services:
     build:
       context: ../../
       dockerfile: docker/develop/Dockerfile.dev
-    container_name: nest-rest-core-dev-app
+    container_name: nest-graphql-core-dev-app
     command: sh -c "pnpm exec prisma generate && pnpm exec prisma migrate deploy && pnpm run start:dev:docker"
     ports:
       - "3005:3000"

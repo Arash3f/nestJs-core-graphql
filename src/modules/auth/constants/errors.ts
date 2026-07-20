@@ -11,7 +11,7 @@ export const AuthErrors = {
   },
   AccessDenied: {
     code: 2,
-    statusCode: HttpStatus.UNAUTHORIZED,
+    statusCode: HttpStatus.FORBIDDEN,
     module: ModuleNames.AuthModule,
     message: "Access denied",
     persianTranslation: "دسترسی داده نشد",
@@ -29,13 +29,6 @@ export const AuthErrors = {
     module: ModuleNames.AuthModule,
     message: "The username or password is incorrect",
     persianTranslation: "نام کاربری یا پسورد اشتباه است",
-  },
-  DeviceMismatch: {
-    code: 5,
-    statusCode: HttpStatus.UNAUTHORIZED,
-    module: ModuleNames.AuthModule,
-    message: "This token was issued for a different device",
-    persianTranslation: "این توکن برای دستگاه دیگری صادر شده است",
   },
   InValidRefreshToken: {
     code: 6,

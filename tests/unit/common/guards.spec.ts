@@ -4,7 +4,6 @@ import { Role } from "@prisma/client"
 import { IsAdminGuard } from "@src/common/guards/is-admin.guard"
 import { IsLoggedInGuard } from "@src/common/guards/is-logged-in.guard"
 import { TokenGuard } from "@src/common/guards/token.guard"
-import { getDeviceFingerprint } from "@src/common/utils/device-fingerprint.util"
 import { AuthErrors } from "@src/modules/auth/constants/errors"
 
 /**
@@ -127,10 +126,9 @@ describe("TokenGuard", () => {
     guard = new TokenGuard(mockJwt as unknown as JwtService)
   })
 
-  const requestWith = (token?: string, userAgent = "agent") => ({
+  const requestWith = (token?: string) => ({
     headers: {
       ...(token ? { authorization: `Bearer ${token}` } : {}),
-      "user-agent": userAgent,
     },
   })
 
@@ -141,29 +139,12 @@ describe("TokenGuard", () => {
     expect(mockJwt.verify).not.toHaveBeenCalled()
   })
 
-  it("leaves req.user unset for a valid token without a device claim", () => {
+  it("attaches req.user when the token verifies", () => {
     const req = requestWith("tok")
     mockJwt.verify.mockReturnValue({ id: "1", username: "u" })
 
     expect(guard.canActivate(contextFor(req))).toBe(true)
-    expect((req as Record<string, unknown>).user).toBeUndefined()
-  })
-
-  it("attaches req.user when the device fingerprint matches the token claim", () => {
-    const req = requestWith("tok", "matching-agent")
-    const deviceId = getDeviceFingerprint(req as never)
-    mockJwt.verify.mockReturnValue({ id: "1", username: "u", deviceId })
-
-    expect(guard.canActivate(contextFor(req))).toBe(true)
     expect((req as Record<string, unknown>).user).toEqual({ id: "1", username: "u" })
-  })
-
-  it("leaves req.user unset when the token's device claim does not match", () => {
-    const req = requestWith("tok")
-    mockJwt.verify.mockReturnValue({ id: "1", username: "u", deviceId: "different-device" })
-
-    expect(guard.canActivate(contextFor(req))).toBe(true)
-    expect((req as Record<string, unknown>).user).toBeUndefined()
   })
 
   it("swallows verification errors and leaves req.user unset", () => {

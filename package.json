@@ -1,9 +1,10 @@
 {
   "name": "nest-js-core-graphql",
-  "version": "0.0.1",
+  "version": "2.0.0",
   "description": "NestJs Core Graphql",
   "author": "Arash Alfooneh",
   "private": true,
+  "packageManager": "pnpm@10.33.0",
   "license": "MIT",
   "scripts": {
     "prepare": "husky",
@@ -24,9 +25,9 @@
     "start:dev": "env-cmd -f ./.env.dev nest start --webpack --webpackPath ./webpack-hmr.config.js --watch",
     "start:dev:swc": "env-cmd -f ./.env.dev nest start -b swc --watch",
     "start:dev:docker": "nest start --webpack --webpackPath ./webpack-hmr.config.js --watch",
-    "test": "env-cmd -f ./.env.test jest --config jest.config.js --detectOpenHandles --forceExit --passWithNoTests",
-    "test:cov": "env-cmd -f ./.env.test jest --config jest.config.js  --detectOpenHandles --forceExit --coverage --passWithNoTests",
-    "api": "npx ts-node scripts/zeus.ts"
+    "test": "env-cmd -f ./.env.test jest --config jest.config.js --detectOpenHandles --forceExit",
+    "test:cov": "env-cmd -f ./.env.test jest --config jest.config.js  --detectOpenHandles --forceExit --coverage",
+    "api": "pnpm exec ts-node scripts/zeus.ts"
   },
   "dependencies": {
     "@apollo/server": "^5.5.1",
@@ -46,8 +47,11 @@
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
     "clean-deep": "^3.4.0",
+    "env-cmd": "^11.0.0",
     "fastify": "^5.8.5",
     "graphql": "^16.14.2",
+    "graphql-depth-limit": "^1.1.0",
+    "graphql-query-complexity": "^1.1.0",
     "pg": "^8.22.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
@@ -56,21 +60,19 @@
   },
   "devDependencies": {
     "@commitlint/cli": "^21.0.2",
-    "@compodoc/compodoc": "^1.2.1",
     "@eslint/js": "^9.39.4",
     "@nestjs/cli": "^11.0.23",
     "@nestjs/testing": "^11.1.27",
     "@swc/cli": "^0.8.1",
     "@swc/core": "^1.15.41",
+    "@types/graphql-depth-limit": "^1.1.6",
     "@types/jest": "^29.5.14",
-    "@types/multer": "^1.4.13",
-    "@types/node": "^24.13.2",
+    "@types/node": "^22.19.19",
     "@types/pg": "^8.20.0",
     "chokidar": "^4.0.3",
     "commitizen": "^4.3.2",
     "commitlint-config-gitmoji": "^2.3.1",
     "cz-customizable": "^7.5.4",
-    "env-cmd": "^10.1.0",
     "eslint": "^9.39.4",
     "eslint-config-prettier": "^9.1.2",
     "eslint-plugin-prettier": "^5.5.6",
@@ -100,6 +102,13 @@
     }
   },
   "lint-staged": {
-    "*.ts": "eslint --fix"
+    "src/**/*.{js,ts}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "tests/**/*.{js,ts}": [
+      "eslint --fix",
+      "prettier --write"
+    ]
   }
 }

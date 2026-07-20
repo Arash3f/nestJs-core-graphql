@@ -1,7 +1,6 @@
 import { UseGuards } from "@nestjs/common"
 import { Args, Mutation, Resolver } from "@nestjs/graphql"
 import { Throttle } from "@nestjs/throttler"
-import { GetDeviceFingerprint } from "@src/common/decorators/get-device-fingerprint.decorator"
 import { GetUserId } from "@src/common/decorators/get-user-id.decorator"
 import { IdInput } from "@src/common/dto/id.input"
 import { SuccessOutput } from "@src/common/dto/success.output"
@@ -21,18 +20,15 @@ export class AuthResolver {
   constructor(private authService: AuthService) {}
 
   /**
-   * Login a user with username/password, bound to the calling device.
+   * Login a user with username/password.
    *
    * @throws {@link AuthErrors.IncorrectUsernameOrPassword}
    */
   @Mutation(() => LoginOutput)
   @UseGuards(GqlThrottlerGuard)
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
-  async logIn(
-    @Args("data") data: LoginInput,
-    @GetDeviceFingerprint() deviceId: string,
-  ): Promise<LoginOutput> {
-    return await this.authService.logIn(data, deviceId)
+  async logIn(@Args("data") data: LoginInput): Promise<LoginOutput> {
+    return await this.authService.logIn(data)
   }
 
   /**
@@ -43,11 +39,8 @@ export class AuthResolver {
   @Mutation(() => LoginOutput)
   @UseGuards(GqlThrottlerGuard)
   @Throttle({ default: { limit: 3, ttl: 60_000 } })
-  async register(
-    @Args("data") data: RegisterInput,
-    @GetDeviceFingerprint() deviceId: string,
-  ): Promise<LoginOutput> {
-    return await this.authService.register(data, deviceId)
+  async register(@Args("data") data: RegisterInput): Promise<LoginOutput> {
+    return await this.authService.register(data)
   }
 
   /**
@@ -90,18 +83,14 @@ export class AuthResolver {
   }
 
   /**
-   * Refresh user tokens with a refresh token, bound to the calling device.
+   * Refresh user tokens with a refresh token.
    *
    * @throws {@link AuthErrors.UserIsNotAuthorized}
-   * @throws {@link AuthErrors.DeviceMismatch}
    * @throws {@link AuthErrors.InValidRefreshToken}
    */
   @Mutation(() => LoginOutput)
   @UseGuards(GqlThrottlerGuard)
-  async refreshToken(
-    @Args("data") data: RefreshTokenInput,
-    @GetDeviceFingerprint() deviceId: string,
-  ): Promise<LoginOutput> {
-    return await this.authService.refreshToken(data, deviceId)
+  async refreshToken(@Args("data") data: RefreshTokenInput): Promise<LoginOutput> {
+    return await this.authService.refreshToken(data)
   }
 }

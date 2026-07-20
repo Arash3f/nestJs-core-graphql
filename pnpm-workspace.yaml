@@ -1,15 +1,13 @@
 allowBuilds:
-  '@apollo/protobufjs': false
-  '@compodoc/compodoc': true
-  '@prisma/engines': true
-  '@scarf/scarf': false
-  '@swc/core': true
+  "@apollo/protobufjs": false
+  "@prisma/engines": true
+  "@scarf/scarf": false
+  "@swc/core": true
   argon2: true
   prisma: true
 
-# Force a single NestJS 11 copy across the tree. nestjs-loki-logger@0.1.0 pins
-# @nestjs/common@^9 as a hard dependency, which otherwise installs a second
-# (incompatible) NestJS version and breaks DynamicModule typing in app.module.
+# Force a single NestJS 11 copy across the tree when transitive packages pin
+# older major ranges of @nestjs/common or @nestjs/core.
 overrides:
-  '@nestjs/common': ^11.1.27
-  '@nestjs/core': ^11.1.27
+  "@nestjs/common": ^11.1.27
+  "@nestjs/core": ^11.1.27

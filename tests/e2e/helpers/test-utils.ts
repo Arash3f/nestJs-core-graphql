@@ -59,9 +59,7 @@ export function extractGraphqlError(err: unknown): GraphqlErrorBody | undefined 
 }
 
 /**
- * Per-request overrides. Currently only used to send a different `User-Agent`
- * (the device fingerprint is a SHA-256 of that header), letting refresh-token
- * tests simulate a request from a device the session was not bound to.
+ * Per-request header overrides for the Zeus client.
  */
 export interface RequestOptions {
   headers?: Record<string, string>
@@ -114,24 +112,17 @@ export class TestApiCaller {
   private url = ""
   /** Bearer token attached to every request, or `null` when anonymous. */
   private accessToken: string | null = null
-  /**
-   * Stable `User-Agent` for every request, so the device fingerprint (a
-   * SHA-256 of this header) is identical across a login and its later refresh.
-   */
-  private userAgent = "e2e-test-runner/1.0"
 
   /**
-   * Builds a Zeus client bound to the current auth/device headers. Specs use the
+   * Builds a Zeus client bound to the current auth headers. Specs use the
    * typed {@link TestApiCaller.query} / {@link TestApiCaller.mutation} shortcuts;
-   * reach for `gql({ headers })` directly only to override a header per request
-   * (e.g. a different `User-Agent` to simulate another device).
+   * reach for `gql({ headers })` directly to override headers per request.
    *
    * @param opts - Per-request header overrides.
    */
   gql(opts: RequestOptions = {}) {
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
-      "User-Agent": this.userAgent,
       ...opts.headers,
     }
     if (this.accessToken) {
@@ -140,12 +131,12 @@ export class TestApiCaller {
     return Chain(this.url, { headers })
   }
 
-  /** Run any typed GraphQL query with the current auth/device headers. */
+  /** Run any typed GraphQL query with the current auth headers. */
   get query() {
     return this.gql()("query")
   }
 
-  /** Run any typed GraphQL mutation with the current auth/device headers. */
+  /** Run any typed GraphQL mutation with the current auth headers. */
   get mutation() {
     return this.gql()("mutation")
   }

@@ -392,13 +392,6 @@ describe("Auth", () => {
    * ! ------------------- !
    */
   describe("RefreshToken", () => {
-    /**
-     * A `User-Agent` that differs from the test runner's default, used to
-     * simulate a request coming from a device the session was not bound to
-     * (the fingerprint is a SHA-256 of the `User-Agent`).
-     */
-    const OTHER_DEVICE = { headers: { "User-Agent": "OtherDevice/1.0" } }
-
     it("+ exchanges a valid refresh token for a fresh, usable token pair", async () => {
       api.setAnonymousMode()
       const { logIn: first } = await api.mutation({ logIn: [{ data: member }, TOKENS_SELECTION] })
@@ -454,18 +447,22 @@ describe("Auth", () => {
       }
     })
 
-    it("- DeviceMismatch when refreshing from a different device", async () => {
+    it("- UserIsNotAuthorized when the account has been deactivated", async () => {
       api.setAnonymousMode()
       const { logIn } = await api.mutation({ logIn: [{ data: member }, TOKENS_SELECTION] })
 
+      await prisma.users.update({
+        where: { username: member.username.toLowerCase() },
+        data: { active: false },
+      })
+
       try {
-        // refresh from a different device (different User-Agent → different fingerprint)
-        await api.gql(OTHER_DEVICE)("mutation")({
+        await api.mutation({
           refreshToken: [{ data: { refreshToken: logIn.refreshToken } }, TOKENS_SELECTION],
         })
         fail("Test failed!")
       } catch (err) {
-        expect(extractGraphqlError(err)).toMatchObject(AuthErrors.DeviceMismatch)
+        expect(extractGraphqlError(err)).toMatchObject(AuthErrors.UserIsNotAuthorized)
       }
     })
   })

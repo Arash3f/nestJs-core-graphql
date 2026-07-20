@@ -1,234 +1,371 @@
-<h1 align="center">NestJS Core GraphQL</h1>
+# NestJS Core GraphQL
 
-<p align="center">
-  A production-ready NestJS starter — GraphQL (code-first) on Fastify, with Prisma 7, JWT auth & RBAC, typed error handling, and built-in observability.
-</p>
+A production-oriented GraphQL API starter built with NestJS, Apollo Server, Fastify,
+Prisma, PostgreSQL, and TypeScript. It provides JWT authentication, refresh-token
+rotation, role-based access control, centralized GraphQL error responses, validated
+configuration, a typed Zeus client, Docker development, and unit/end-to-end tests.
 
-<p align="center">
-  <a href="http://nestjs.com/" target="_blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+[![NestJS](https://img.shields.io/badge/NestJS-11-E0234E?logo=nestjs&logoColor=white)](https://nestjs.com/)
+[![Apollo](https://img.shields.io/badge/Apollo_Server-5-311C87?logo=apollographql&logoColor=white)](https://www.apollographql.com/)
+[![Fastify](https://img.shields.io/badge/Fastify-5-000000?logo=fastify&logoColor=white)](https://fastify.dev/)
+[![Prisma](https://img.shields.io/badge/Prisma-7-2D3748?logo=prisma&logoColor=white)](https://www.prisma.io/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15%2B-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-6-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-<p align="center">
-  <img alt="NestJS" src="https://img.shields.io/badge/NestJS-11-E0234E?logo=nestjs&logoColor=white">
-  <img alt="Apollo" src="https://img.shields.io/badge/Apollo_Server-5-311C87?logo=apollographql&logoColor=white">
-  <img alt="Fastify" src="https://img.shields.io/badge/Fastify-5-000000?logo=fastify&logoColor=white">
-  <img alt="Prisma" src="https://img.shields.io/badge/Prisma-7-2D3748?logo=prisma&logoColor=white">
-  <img alt="PostgreSQL" src="https://img.shields.io/badge/PostgreSQL-336791?logo=postgresql&logoColor=white">
-  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-6-3178C6?logo=typescript&logoColor=white">
-  <img alt="License" src="https://img.shields.io/badge/license-MIT-green">
-</p>
+## Highlights
 
----
+- Signed access and refresh JWTs with independently configured expiration times.
+- Refresh-token rotation with only the Argon2id hash stored in PostgreSQL.
+- Self-service password change for logged-in users (`changeMyPassword`) plus admin password reset.
+- Public member registration plus admin/member authorization guards.
+- Immediate authorization checks against the current database role and active state.
+- A single GraphQL error format with stable module-local codes and English/Persian messages.
+- Strict input validation with transformation, allow-listing, rejection of unknown properties, and bounded password length (8–128).
+- Query depth and complexity limits to reduce abusive GraphQL payloads.
+- Prisma helpers for bounded pagination and schema-validated sorting.
+- Runtime validation of all required environment variables.
+- Code-first GraphQL schema auto-generated to `schema.gql`, with Apollo Sandbox outside production.
+- A committed generated Zeus client, ready for tests after cloning.
+- Auth operation throttling, database-backed health checks, boot-time development seeding, and Docker Compose.
+- Jest unit and GraphQL/HTTP end-to-end coverage.
 
-## ✨ Overview
+## Technology
 
-A batteries-included backend core for building GraphQL APIs with NestJS. The
-schema is **code-first** (auto-generated to `schema.gql`), the HTTP layer runs
-on **Fastify**, and persistence is handled by **Prisma 7** using the
-`@prisma/adapter-pg` driver adapter against **PostgreSQL**.
+| Area | Choice |
+| --- | --- |
+| Runtime | Node.js 22 |
+| Framework | NestJS 11 / Fastify |
+| GraphQL | Apollo Server 5, `@nestjs/graphql` (code-first) |
+| Language | TypeScript 6, strict mode |
+| Database | PostgreSQL 15+ |
+| Data access | Prisma 7 with the PostgreSQL driver adapter |
+| Authentication | NestJS JWT and Argon2id |
+| Validation | class-validator and class-transformer |
+| Typed client | [graphql-zeus](https://github.com/graphql-editor/graphql-zeus) from `schema.gql` |
+| Testing | Jest, ts-jest, Zeus |
+| Tooling | pnpm, ESLint, Prettier, Husky, lint-staged |
 
-It ships with the plumbing most projects rewrite every time:
+## Architecture
 
-- 🔐 **Auth & RBAC** — JWT access/refresh tokens, Argon2 password hashing,
-  `Admin` / `Member` roles, and guard-based access control.
-- 🧩 **Typed error catalog** — every module declares its own errors (code,
-  HTTP status, message, Persian translation) and they're normalized into a
-  single GraphQL error shape, with internal details stripped in production.
-- 🧪 **Typed tests** — e2e specs talk to the API through a generated
-  [Zeus](https://github.com/graphql-editor/graphql-zeus) client, plus unit tests
-  for guards, filters, pipes and utils.
-- 🔒 **Device-bound sessions** — issued JWTs carry a `deviceId` claim derived
-  from the caller's `User-Agent` (SHA-256). A token replayed from a different
-  device is silently rejected. This is a soft binding (defense-in-depth), not a
-  hardware-level guarantee.
-- 🛡 **Rate limiting** — `logIn` (5 req/min), `register` (3 req/min), and
-  `refreshToken` (module default from `THROTTLE_*`) are protected by
-  `@nestjs/throttler` via a Fastify/GQL-aware guard. Skipped automatically in
-  the `Test` environment.
-- ❤️ **Health probe** — plain HTTP `GET /health` for load balancers (DB
-  reachability check, not GraphQL).
-- ⚡ **Fast DX** — webpack HMR dev server, ESLint + Prettier, Husky +
-  Commitizen (gitmoji) commit prompts.
+```text
+GraphQL request
+  -> global TokenGuard (optional JWT authentication)
+  -> resolver guard (logged-in or admin authorization)
+  -> global ValidationPipe
+  -> resolver
+  -> service
+  -> PrismaService
+  -> PostgreSQL
 
-## 🛠 Tech stack
+Any exception
+  -> CoreExceptionFilter
+  -> normalized GraphQL error extensions
 
-| Layer            | Technology                                                      |
-| ---------------- | -------------------------------------------------------------- |
-| Framework        | NestJS 11                                                      |
-| GraphQL          | Apollo Server 5 + `@nestjs/graphql` 13 (code-first)           |
-| HTTP server      | Fastify 5                                                      |
-| ORM              | Prisma 7 (`@prisma/adapter-pg` driver adapter)                |
-| Database         | PostgreSQL                                                     |
-| Auth             | `@nestjs/jwt`, Argon2                                          |
-| Language / build | TypeScript 6, SWC, webpack (HMR)                              |
-| Tooling          | pnpm, ESLint, Prettier, Husky, Commitizen, Jest               |
-
-## 📦 Requirements
-
-- **Node.js** ≥ 20 (developed/tested on Node 24)
-- **pnpm** ≥ 10
-- A **PostgreSQL** database (local or Docker — see below)
-
-## 🚀 Getting started
-
-```bash
-# 1. Install dependencies
-pnpm install
+HTTP GET /health
+  -> HealthController (plain HTTP readiness, not GraphQL)
 ```
 
-> On first install, pnpm asks to approve native build scripts (Prisma engines,
-> SWC). They are pre-approved in `pnpm-workspace.yaml`.
+```text
+src/
+|-- common/                 Shared guards, decorators, DTOs, pipes, filters, and utilities
+|-- modules/
+|   |-- auth/               Login, registration, logout, rotation, password changes
+|   |-- config/             Typed and validated environment configuration
+|   |-- health/             Database-backed readiness endpoint
+|   |-- init/               Optional boot-time development seed
+|   |-- prisma/             Database client and reusable query/error helpers
+|   `-- user/               Profile and admin user management
+|-- app.exception.ts        Domain exception type
+|-- app.module.ts           Root dependency graph (GraphQL + throttling)
+`-- main.ts                 Application bootstrap
+
+tests/
+|-- unit/                   Isolated services, guards, pipes, filters, and utilities
+|-- e2e/                    Auth, user, and health scenarios
+`-- utils/graphql/          Committed Zeus client generated from schema.gql
+```
+
+## API
+
+GraphQL is served at `/graphql`. Outside production, Apollo Sandbox / introspection is
+available at the same path. The committed schema lives at `schema.gql`.
+
+| Operation | Type | Access | Purpose |
+| --- | --- | --- | --- |
+| `me` | Query | Logged in | Read the current profile |
+| `readUsers` | Query | Admin | Filter, sort, and paginate users |
+| `logIn` | Mutation | Public, throttled | Create an access/refresh token pair |
+| `register` | Mutation | Public, throttled | Register a member and sign in |
+| `refreshToken` | Mutation | Public, throttled | Rotate a valid refresh token |
+| `logout` | Mutation | Logged in | Revoke the stored refresh token |
+| `changeMyPassword` | Mutation | Logged in | Replace the caller's password after verifying the current one |
+| `changePassword` | Mutation | Admin | Replace a user's password and revoke refresh access |
+| `updateMe` | Mutation | Logged in | Change the current user's name or username |
+| `createUser` | Mutation | Admin | Create a member or admin |
+| `updateUser` | Mutation | Admin | Change profile, role, or active state |
+| `deleteUser` | Mutation | Admin | Soft-delete a user and revoke refresh access |
+
+Plain HTTP:
+
+| Method | Path | Access | Purpose |
+| --- | --- | --- | --- |
+| `GET` | `/health` | Public | Process and database readiness |
+
+`readUsers` accepts optional `where`, `pagination`, and `sortBy` arguments:
+
+| Argument | Field | Type | Behavior |
+| --- | --- | --- | --- |
+| `where` | `id` | ID | Exact ID |
+| `where` | `username` | string | Case-insensitive contains |
+| `where` | `name` | string | Case-insensitive contains |
+| `where` | `role` | `Admin` or `Member` | Exact role |
+| `where` | `active` | boolean | Exact active state |
+| `pagination` | `take` | number | Page size, from 0 through 200; default 10 |
+| `pagination` | `skip` | number | Offset, minimum 0; default 0 |
+| `sortBy` | `field` | string | A real scalar field from the Prisma user model |
+| `sortBy` | `descending` | boolean | Descending by default |
+
+Example:
+
+```graphql
+query {
+  readUsers(
+    where: { role: Member, active: true }
+    pagination: { take: 20, skip: 0 }
+    sortBy: { field: "username", descending: false }
+  ) {
+    count
+    data {
+      id
+      username
+      role
+    }
+  }
+}
+```
+
+The health response includes database readiness:
+
+```json
+{
+  "status": "ok",
+  "database": "ok",
+  "timestamp": "2026-01-01T00:00:00.000Z"
+}
+```
+
+Domain and framework errors are normalized into GraphQL error extensions. Domain errors
+also carry a Persian translation and a stable `(module, code)` pair:
+
+```json
+{
+  "message": "The username or password is incorrect",
+  "extensions": {
+    "path": "/graphql",
+    "statusCode": 400,
+    "module": "AuthModule",
+    "code": 4,
+    "message": "The username or password is incorrect",
+    "persianTranslation": "...",
+    "timestamp": "2026-01-01T00:00:00.000Z"
+  }
+}
+```
+
+Debug and developer fields are removed in production. Unexpected internal errors also
+receive a generic production message. Introspection is disabled in production.
+
+## Authentication model
+
+1. Login or registration issues an access token and a longer-lived refresh token.
+2. Both tokens contain the user ID and username and are verified with the configured JWT secret.
+3. The global token guard verifies a bearer token and attaches the authenticated user to the request when valid.
+4. Resolver guards query the database to enforce the user's current active state and role.
+5. Refresh validates the JWT, current user state, and stored Argon2id hash before rotating the pair.
+6. Logout, password replacement (admin or self-service), and soft deletion clear the stored refresh-token hash.
+
+The current schema stores one refresh-token hash per user, so a later login replaces the
+previous refresh session. Access tokens are stateless and remain valid until expiry unless
+the user is deactivated. Use TLS everywhere and keep access-token lifetimes short.
+
+Default auth throttling uses `THROTTLE_TTL_MS` / `THROTTLE_LIMIT`. Login and register also
+apply stricter per-operation limits (5 req/min and 3 req/min respectively). Throttling is
+skipped automatically in the `test` environment.
+
+## Getting started
+
+### Prerequisites
+
+- Node.js 22
+- pnpm 10
+- PostgreSQL 15 or newer, unless using Docker
+- Docker Engine with Compose, for the container workflow
+
+### Local development
 
 ```bash
-# 2. Create your environment file and fill in the values
+git clone https://github.com/Arash3f/nestJs-core-graphql.git
+cd nestJs-core-graphql
+pnpm install --frozen-lockfile
 cp .env.sample .env.dev
+```
 
-# 3. Generate the Prisma client
-pnpm exec prisma generate
+Set `NODE_ENV=development`, replace `JWT_SECRET`, configure `DATABASE_CONNECTION_URL`, and
+review all seed credentials in `.env.dev`. Never deploy the sample admin/member passwords.
 
-# 4. Apply the schema to your database
-pnpm run prisma:push:dev      # or: pnpm run prisma:migrate:dev
-
-# 5. Start the dev server (webpack HMR)
+```bash
+pnpm run prisma:generate:dev
+pnpm run prisma:migrate:dev
 pnpm run start:dev
 ```
 
-The GraphQL API is then served at **`http://<SERVER_ADDRESS>:<SERVER_PORT>/graphql`**
-(defaults to `0.0.0.0:3000`).
+Default local URLs:
 
-> **Prisma 7 note:** the database connection URL is no longer stored in
-> `schema.prisma`. It lives in `prisma.config.ts` (read from
-> `DATABASE_CONNECTION_URL`) for CLI commands, and the running app connects
-> through the pg driver adapter configured in
-> `src/modules/prisma/prisma.service.ts`.
+- GraphQL: `http://localhost:3000/graphql`
+- Health: `http://localhost:3000/health`
 
-## ⚙️ Environment variables
-
-Copy `.env.sample` and fill it in. Key groups:
-
-| Variable                          | Description                                          |
-| --------------------------------- | ---------------------------------------------------- |
-| `NODE_ENV`                        | `Development` / `Production` / `Test`               |
-| `SERVER_ADDRESS`, `SERVER_PORT`   | Bind address & port (default `0.0.0.0:3000`)        |
-| `CORS_ORIGINS`                    | Comma-separated origins, or `*` for all             |
-| `THROTTLE_TTL_MS`, `THROTTLE_LIMIT` | Default throttler window (ms) and request limit   |
-| `DATABASE_CONNECTION_URL`         | Full Postgres connection string (only URL needed)   |
-| `JWT_SECRET`                      | Secret used to sign JWTs                             |
-| `JWT_ACCESS_EXPIRE`, `JWT_REFRESH_EXPIRE` | Token lifetimes (seconds)                   |
-| `SEED_ON_BOOT`                    | Seed the super-admin user on startup (`true`/`false`) |
-| `SUPER_USER_*`                    | Default super-admin credentials seeded on boot      |
-| `MEMBER_USER_*`                   | Default member credentials seeded on boot           |
-| `PASSWORD_HASH_*`                 | Argon2 memory/time/parallelism cost params          |
-
-All env access goes through the typed `EnvConfigService` and is validated at
-startup; invalid config aborts the process.
-
-## 🐳 Running with Docker
-
-A development Docker setup is provided under `docker/develop/`:
+### Docker development
 
 ```bash
-# copy the sample docker env files first
 cp docker/develop/.env.docker.dev.sample docker/develop/.env.docker.dev
 cp docker/develop/.docker.dev.sample.env docker/develop/.docker.dev.env
-
-# build & run
-docker compose -f docker/develop/docker-compose-develop.yml up --build
 ```
 
-## 🏗 Project structure
-
-```
-src/
-├── common/            # Shared building blocks
-│   ├── decorators/    # @GetUserId, @GetJwtToken, @GetIp, @GetDeviceFingerprint
-│   ├── dto/           # PaginationData, SortByData, IdInput, SuccessOutput
-│   ├── guards/        # TokenGuard (global), IsLoggedIn, IsAdmin, GqlThrottlerGuard
-│   ├── filters/       # Exception normalization (CoreExceptionFilter)
-│   └── utils/         # device-fingerprint, jwt-extract, get-request
-├── modules/
-│   ├── auth/          # logIn, register, logout, changePassword, changeMyPassword, refreshToken
-│   ├── user/          # me, updateMe, createUser, readUsers, updateUser, deleteUser
-│   ├── config/        # EnvConfigService + validation
-│   ├── prisma/        # PrismaService (pg driver adapter)
-│   ├── health/        # GET /health liveness/readiness probe
-│   └── init/          # Super-user / member seeding on boot
-└── main.ts            # Bootstrap, CORS, global TokenGuard, listen
-
-tests/
-└── utils/graphql/     # Generated Zeus client (e2e typed GraphQL client)
-```
-
-### Request pipeline
-
-1. **`TokenGuard`** runs globally on every GraphQL request. It never throws —
-   it decodes the JWT (if present) and, when the token verifies and its
-   `deviceId` claim matches the caller's device fingerprint, sets `req.user`.
-   A missing or invalid token leaves `req.user` unset, so unauthenticated
-   queries (e.g. `logIn`) still work.
-2. **Per-resolver guards** (`IsLoggedIn`, `IsAdmin`) read `req.user` and throw
-   typed `AppException`s when access is denied. Both hit the DB on every call
-   so a deactivated account is locked out immediately, even with a valid token.
-3. **Resolvers** pull user/request data via param decorators (`@GetUserId()`,
-   `@GetJwtToken()`, `@GetIp()`, `@GetDeviceFingerprint()`) and bind args with
-   plain `@Args("data" | "where" | "pagination" | "sortBy")`.
-
-## 🧪 Testing
-
-Tests live under `tests/` and include:
-
-- **e2e** (`tests/e2e/*.e2e.spec.ts`) — hit the real app through the generated
-  Zeus client (GraphQL) or Fastify inject (HTTP health). Require a Postgres DB
-  from `.env.test` and a Zeus client in sync with `schema.gql`.
-- **unit** (`tests/unit/**/*.spec.ts`) — guards, filters, pipes, utils, and
-  Prisma helpers; no database required beyond what individual specs mock.
+Fill both files, ensuring the PostgreSQL credentials and database name match. In the
+application URL, the database host must remain `postgres`, the Compose service name.
 
 ```bash
-# 1. Prepare the test database (push the schema against .env.test)
-pnpm run prisma:push:test
+docker compose -f docker/develop/docker-compose-develop.yml up -d --build
+```
 
-# 2. (Re)generate the typed Zeus client from schema.gql
-pnpm run api
+The API is exposed at `http://localhost:3005`, PostgreSQL at host port `5435`, GraphQL at
+`http://localhost:3005/graphql`, and health at `http://localhost:3005/health`.
 
-# 3. Run all tests (uses .env.test)
+```bash
+docker compose -f docker/develop/docker-compose-develop.yml logs -f
+docker compose -f docker/develop/docker-compose-develop.yml down
+```
+
+To intentionally remove the development database volume as well:
+
+```bash
+docker compose -f docker/develop/docker-compose-develop.yml down -v
+```
+
+## Environment variables
+
+The application fails fast when a required value is missing or has the wrong primitive type.
+The full templates are `.env.sample` and `.env.test.sample`.
+
+| Group | Variables |
+| --- | --- |
+| Runtime | `NODE_ENV`, `SERVER_ADDRESS`, `SERVER_PORT` |
+| Browser access | `CORS_ORIGINS` |
+| Throttling | `THROTTLE_TTL_MS`, `THROTTLE_LIMIT` |
+| JWT | `JWT_SECRET`, `JWT_ACCESS_EXPIRE`, `JWT_REFRESH_EXPIRE` |
+| Database | `DATABASE_CONNECTION_URL` |
+| Seed | `SEED_ON_BOOT`, `SUPER_USER_*`, `MEMBER_USER_*` |
+| Password hashing | `PASSWORD_HASH_MEMORY_COST`, `PASSWORD_HASH_TIME_COST`, `PASSWORD_HASH_PARALLELISM` |
+
+`NODE_ENV` must be one of `development`, `production`, or `test`. `JWT_ACCESS_EXPIRE` and
+`JWT_REFRESH_EXPIRE` are numeric seconds. `CORS_ORIGINS` accepts `*` or a comma-separated
+list. Keep `SEED_ON_BOOT=false` in production unless startup seeding is deliberately required.
+
+## Commands
+
+| Command | Purpose |
+| --- | --- |
+| `pnpm run start:dev` | Development server with webpack HMR and `.env.dev` |
+| `pnpm run start:dev:swc` | Development watch mode with SWC |
+| `pnpm run start:build` | Build with `.env.prod` |
+| `pnpm run start:prod` | Run `dist/main.js` with `.env.prod` |
+| `pnpm run prisma:generate:dev` | Generate the development Prisma client |
+| `pnpm run prisma:migrate:dev` | Create/apply development migrations |
+| `pnpm run prisma:studio:dev` | Open Prisma Studio |
+| `pnpm run prisma:push:dev` | Push the schema without creating a migration |
+| `pnpm run test` | Run all unit and end-to-end tests serially |
+| `pnpm run test:cov` | Run all tests and create an HTML coverage report |
+| `pnpm run lint` | Apply ESLint fixes |
+| `pnpm run typecheck` | TypeScript `tsc --noEmit` |
+| `pnpm run format` | Apply Prettier formatting |
+| `pnpm run api` | Regenerate the Zeus client from `schema.gql` |
+
+## Testing
+
+The repository currently contains 13 suites and 153 test cases across unit and end-to-end coverage.
+The end-to-end suites start the real Nest application, use PostgreSQL, reset the configured
+test database between cases, and call GraphQL through the generated Zeus client. Health is
+exercised over plain HTTP.
+
+Prepare a dedicated disposable test database. Never point `.env.test` at development or
+production data.
+
+```bash
+cp .env.test.sample .env.test
+pnpm run prisma:generate:test
+pnpm exec env-cmd -f ./.env.test pnpm exec prisma migrate deploy
+```
+
+The generated Zeus client under `tests/utils/graphql/` is committed, so a fresh clone can
+compile and run tests without regenerating it first. Regenerate and commit it whenever
+`schema.gql` changes:
+
+```bash
+pnpm run start:dev   # updates schema.gql from the code-first resolvers
+pnpm run api         # regenerates the committed Zeus client
+```
+
+Run the suite after the test database is prepared and the configured test port is free:
+
+```bash
 pnpm run test
-
-# ...or with coverage
 pnpm run test:cov
 ```
 
-> Run a single test by name:
-> `env-cmd -f ./.env.test jest --config jest.config.js -t "name of test"`
+Coverage produces an HTML report, `coverage/lcov.info` for Codecov, and a terminal summary.
 
-## 📜 Useful scripts
+Jest runs suites serially because each end-to-end suite binds the configured server port. A
+busy port or unavailable database causes application setup to fail. The CI workflow
+provisions PostgreSQL, generates the Prisma client, regenerates Zeus and verifies it matches
+the committed files, then runs lint, typecheck, and tests.
 
-| Command                        | Description                                           |
-| ------------------------------ | ----------------------------------------------------- |
-| `pnpm run start:dev`           | Dev server with webpack HMR (`.env.dev`)             |
-| `pnpm run start:build`         | Production build (`.env.prod`)                       |
-| `pnpm run start:prod`          | Run the production build                             |
-| `pnpm run lint`                | ESLint with `--fix`                                  |
-| `pnpm run typecheck`           | `tsc --noEmit`                                        |
-| `pnpm run format`              | Prettier                                             |
-| `pnpm run api`                 | Regenerate the Zeus GraphQL client from `schema.gql` |
-| `pnpm run prisma:migrate:dev`  | `prisma migrate dev` (`.env.dev`)                    |
-| `pnpm run prisma:push:dev`     | `prisma db push` (`.env.dev`)                        |
-| `pnpm run studio:dev`          | Open Prisma Studio (`.env.dev`)                      |
-| `pnpm run test`                | Run e2e tests (`.env.test`)                          |
-| `pnpm run test:cov`            | e2e tests with coverage                              |
+## Production readiness notes
 
-## 📝 Commit conventions
+This project is a strong starter, not a complete production platform. Before deploying it
+publicly:
 
-This project uses **Husky + Commitizen** with `cz-customizable` (gitmoji-style).
+- Add a production container/build target, deployment manifests, graceful shutdown, and a
+  real secrets manager.
+- Disable boot seeding and replace every sample credential and secret.
+- Restrict CORS and configure proxy trust for the exact deployment topology.
+- Add issuer/audience JWT claims, key rotation, and a session table if concurrent sessions
+  are required.
+- Add refresh-token reuse detection and an access-token revocation strategy where the risk
+  model requires immediate logout.
+- Tune GraphQL depth/complexity limits for your schema and traffic profile.
+- Split unit and end-to-end commands, use dynamic test ports, and make failed setup/teardown
+  safe.
+- Add request IDs, structured logs, metrics/tracing, dependency scanning, and automated
+  backups.
+- Add account recovery, email verification, MFA, audit logs, and explicit account lockout
+  according to product requirements.
 
-```bash
-pnpm run prepare   # one-time setup
-git commit         # launches the interactive commit prompt
-```
+## Contributing
 
-> **Style:** 4-space indentation, double quotes, **no semicolons**. ESLint +
-> Prettier enforce this on staged files via lint-staged.
+1. Create a focused branch.
+2. Add or update tests with the change.
+3. Run Prisma generation, type checking, linting, and the relevant tests.
+4. Use the configured gitmoji/Commitizen convention with `pnpm exec cz`.
+5. Open a pull request against `develop` or `main`.
 
-## 📄 License
+The pre-commit hook runs lint-staged for source and test TypeScript files. CI also validates
+pushes and pull requests to `main` and `develop`.
 
-[MIT](LICENSE) © Arash Alfooneh
+## License
+
+Released under the [MIT License](LICENSE).
+
+## Author
+
+Arash Alfooneh — [@Arash3f](https://github.com/Arash3f)

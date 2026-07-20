@@ -15,8 +15,6 @@ export type AuthenticatedRequest = FastifyRequest & {
 export type JwtPayload = {
   id: string
   username?: string
-  /** Device fingerprint the token is bound to (sha256 of the User-Agent). */
-  deviceId?: string
   iat?: number
   exp?: number
 }

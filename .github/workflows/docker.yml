@@ -41,7 +41,7 @@ jobs:
           cat <<'EOF' > docker/develop/.docker.dev.env
           POSTGRES_USER=postgres
           POSTGRES_PASSWORD=postgres
-          POSTGRES_DB=nest_rest_core
+          POSTGRES_DB=nest_graphql_core
           PGADMIN_DEFAULT_EMAIL=admin@example.com
           PGADMIN_DEFAULT_PASSWORD=admin
           EOF
@@ -58,12 +58,7 @@ jobs:
           JWT_SECRET=ciDockerDevSecretXXXXXXXXXXXXXXXXXXXXXXXXXX
           JWT_ACCESS_EXPIRE=10000
           JWT_REFRESH_EXPIRE=10000
-          DATABASE_CONNECTION_URL=postgres://postgres:postgres@postgres:5432/nest_rest_core
-          DATABASE_NAME=nest_rest_core
-          DATABASE_USERNAME=postgres
-          DATABASE_PASSWORD=postgres
-          DATABASE_PORT=5432
-          DATABASE_HOST=postgres
+          DATABASE_CONNECTION_URL=postgres://postgres:postgres@postgres:5432/nest_graphql_core
           SEED_ON_BOOT=true
           SUPER_USER_NAME=admin
           SUPER_USER_USERNAME=admin
@@ -81,19 +76,15 @@ jobs:
 
       - name: Wait for app to become healthy
         run: |
-          # This is a GraphQL (Apollo) service — the only HTTP surface is the
-          # /graphql endpoint. Probe it with a trivial query rather than a
-          # Swagger/REST docs path (which does not exist here).
           for i in $(seq 1 30); do
-            if curl -sf -X POST http://localhost:3005/graphql \
-              -H 'content-type: application/json' \
-              -d '{"query":"{ __typename }"}' > /dev/null; then
+            if curl -sf http://localhost:3005/health > /dev/null; then
               echo "App responded successfully"
               exit 0
             fi
             sleep 3
           done
           echo "App did not become healthy in time"
+          docker compose -f docker/develop/docker-compose-develop.yml logs app
           exit 1
 
       - name: Show container logs

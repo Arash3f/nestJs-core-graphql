@@ -13,6 +13,14 @@ import { PrismaModule } from "@src/modules/prisma/prisma.module"
 import { UserModule } from "@src/modules/user/user.module"
 import type { FastifyReply, FastifyRequest } from "fastify"
 import type { GraphQLFormattedError } from "graphql"
+import depthLimit from "graphql-depth-limit"
+import { createComplexityRule, simpleEstimator } from "graphql-query-complexity"
+
+/** Maximum GraphQL selection-set nesting depth accepted by the server. */
+const GRAPHQL_MAX_DEPTH = 7
+
+/** Maximum estimated query complexity accepted by the server. */
+const GRAPHQL_MAX_COMPLEXITY = 1000
 
 @Module({
   imports: [
@@ -45,6 +53,13 @@ import type { GraphQLFormattedError } from "graphql"
           req: request,
           res: reply,
         }),
+        validationRules: [
+          depthLimit(GRAPHQL_MAX_DEPTH),
+          createComplexityRule({
+            maximumComplexity: GRAPHQL_MAX_COMPLEXITY,
+            estimators: [simpleEstimator({ defaultComplexity: 1 })],
+          }),
+        ],
         // CoreExceptionFilter already normalizes every thrown exception into an
         // ErrorResponseBody and stows it under extensions.originalError, stripping
         // debug fields in production. formatError just promotes that body to the

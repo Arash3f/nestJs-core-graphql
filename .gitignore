@@ -3,8 +3,7 @@
 /node_modules
 /backup
 /upload
-
-/swagger
+*.tsbuildinfo
 
 /coverage
 /doc
@@ -64,6 +63,3 @@ docker/develop/.env.docker2.dev
 docker/develop/docker.env2.dev
 docker/production/.env.docker2.prod
 docker/production/docker.env2.prod
-
-
-tests/utils/graphql/

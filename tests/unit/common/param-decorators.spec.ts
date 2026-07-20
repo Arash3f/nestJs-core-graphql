@@ -1,8 +1,6 @@
 import "reflect-metadata"
 import type { ExecutionContext } from "@nestjs/common"
 import { ROUTE_ARGS_METADATA } from "@nestjs/common/constants"
-import { createHash } from "crypto"
-import { GetDeviceFingerprint } from "@src/common/decorators/get-device-fingerprint.decorator"
 import { GetIp } from "@src/common/decorators/get-ip.decorator"
 import { GetUserId } from "@src/common/decorators/get-user-id.decorator"
 import { AuthErrors } from "@src/modules/auth/constants/errors"
@@ -45,17 +43,6 @@ describe("GetUserId", () => {
 
   it("throws UserIsNotAuthorized when no user is attached", () => {
     expect(() => factory(undefined, contextFor({}))).toThrow(AuthErrors.UserIsNotAuthorized.message)
-  })
-})
-
-describe("GetDeviceFingerprint", () => {
-  const factory = getFactory(GetDeviceFingerprint as unknown as () => ParameterDecorator)
-
-  it("returns the sha256 fingerprint of the User-Agent", () => {
-    const ua = "Mozilla/5.0"
-    const expected = createHash("sha256").update(ua).digest("hex")
-
-    expect(factory(undefined, contextFor({ headers: { "user-agent": ua } }))).toBe(expected)
   })
 })
 
